@@ -15,7 +15,7 @@ interface ConfigPanelProps {
   onDeletePreset: () => void;
 }
 
-const PARAM_RANGES: Record<keyof EAConfig, { min: number; max: number }> = {
+const PARAM_RANGES: Omit<Record<keyof EAConfig, { min: number; max: number }>, 'maType'> = {
     magicNumber: { min: 10000, max: 99999 },
     initialLot: { min: 0.01, max: 1.0 },
     maxSpread: { min: 1, max: 100 },
@@ -52,7 +52,7 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
 
     // Rule: All values must be within their defined ranges
     for (const key in PARAM_RANGES) {
-        const configKey = key as keyof EAConfig;
+        const configKey = key as keyof typeof PARAM_RANGES;
         const value = configToValidate[configKey];
         const range = PARAM_RANGES[configKey];
         if (value < range.min || value > range.max) {
@@ -69,7 +69,7 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
     setErrors(validationErrors);
   }, [config]);
 
-  const handleChange = (key: keyof EAConfig, value: number) => {
+  const handleChange = (key: keyof EAConfig, value: number | 'SMA' | 'EMA') => {
     const newConfig = { ...config, [key]: value };
     const validationErrors = validateConfig(newConfig);
     const isValid = Object.keys(validationErrors).length === 0;
@@ -144,7 +144,7 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
           min={PARAM_RANGES.magicNumber.min}
           max={PARAM_RANGES.magicNumber.max}
           step={1}
-          tooltip="Unique ID for this EA to manage its trades."
+          tooltip="Unique ID to distinguish trades managed by this EA. Prevents interference with other EAs or manual trades."
           error={errors.magicNumber}
         />
         <InputSlider
@@ -154,7 +154,7 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
           min={PARAM_RANGES.initialLot.min}
           max={PARAM_RANGES.initialLot.max}
           step={0.01}
-          tooltip="The lot size for the first trade in a cycle."
+          tooltip="The base trading volume for the first trade in a grid. Subsequent trades will build upon this size."
           error={errors.initialLot}
         />
         <InputSlider
@@ -164,7 +164,7 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
           min={PARAM_RANGES.maxSpread.min}
           max={PARAM_RANGES.maxSpread.max}
           step={1}
-          tooltip="Maximum allowed spread in points to open a trade."
+          tooltip="A safety filter to avoid trading during high volatility. The EA won't trade if the spread exceeds this value."
           error={errors.maxSpread}
         />
 
@@ -176,7 +176,7 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
           min={PARAM_RANGES.gridDistance.min}
           max={PARAM_RANGES.gridDistance.max}
           step={50}
-          tooltip="Distance in points between grid trades."
+          tooltip="The price movement against the trend needed to open another grid trade. A smaller value creates a tighter grid."
           error={errors.gridDistance}
         />
         <InputSlider
@@ -186,7 +186,7 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
           min={PARAM_RANGES.gridMultiplier.min}
           max={PARAM_RANGES.gridMultiplier.max}
           step={0.05}
-          tooltip="Multiplier for the lot size of subsequent grid trades."
+          tooltip="Determines how much the lot size increases for each new grid trade (e.g., 1.5x). Increases potential profit and risk."
           error={errors.gridMultiplier}
         />
         <InputSlider
@@ -196,11 +196,40 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
           min={PARAM_RANGES.maxGridTrades.min}
           max={PARAM_RANGES.maxGridTrades.max}
           step={1}
-          tooltip="Maximum number of trades allowed in a single grid."
+          tooltip="The absolute limit on open trades in one direction. A key risk parameter to control exposure."
           error={errors.maxGridTrades}
         />
 
         <h3 className="text-lg font-medium text-brand-accent border-b border-brand-border pb-2 pt-4">Risk & Trend</h3>
+        <div>
+          <label className="font-medium text-sm text-brand-muted mb-2 block">
+            Trend MA Type
+          </label>
+          <div className="flex gap-4">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="radio"
+                name="maType"
+                value="SMA"
+                checked={config.maType === 'SMA'}
+                onChange={() => handleChange('maType', 'SMA')}
+                className="w-4 h-4 text-brand-accent bg-brand-primary border-brand-border focus:ring-brand-accent"
+              />
+              <span className="text-white">SMA (Simple)</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="radio"
+                name="maType"
+                value="EMA"
+                checked={config.maType === 'EMA'}
+                onChange={() => handleChange('maType', 'EMA')}
+                className="w-4 h-4 text-brand-accent bg-brand-primary border-brand-border focus:ring-brand-accent"
+              />
+              <span className="text-white">EMA (Exponential)</span>
+            </label>
+          </div>
+        </div>
          <InputSlider
           label="Trend MA Period"
           value={config.maPeriod}
@@ -208,7 +237,7 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
           min={PARAM_RANGES.maPeriod.min}
           max={PARAM_RANGES.maPeriod.max}
           step={1}
-          tooltip="Period for the Moving Average used as a trend filter."
+          tooltip="Number of bars for the trend-following MA. Higher values track longer-term trends; lower values are more responsive."
           error={errors.maPeriod}
         />
         <InputSlider
@@ -218,7 +247,7 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
           min={PARAM_RANGES.takeProfit.min}
           max={PARAM_RANGES.takeProfit.max}
           step={5}
-          tooltip="Target profit in account currency (USD) to close the entire grid."
+          tooltip="When the combined profit of all grid trades reaches this amount, the EA will close all positions."
           error={errors.takeProfit}
         />
         <InputSlider
@@ -228,7 +257,7 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
           min={PARAM_RANGES.stopLoss.min}
           max={PARAM_RANGES.stopLoss.max}
           step={100}
-          tooltip="Total loss in account currency (USD) to close the grid as a failsafe."
+          tooltip="A critical safety net. If combined loss hits this amount, the EA closes all positions to prevent further drawdown."
           error={errors.stopLoss}
         />
       </div>

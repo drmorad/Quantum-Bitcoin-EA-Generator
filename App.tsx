@@ -3,7 +3,8 @@ import type { EAConfig, Presets } from './types';
 import { generateMql5Code } from './services/mql5Generator';
 import ConfigPanel from './components/ConfigPanel';
 import CodeDisplay from './components/CodeDisplay';
-import { QuantumIcon, ChartBarIcon, BookOpenIcon, XIcon } from './components/icons';
+import TradingViewWidget from './components/TradingViewWidget';
+import { QuantumIcon, BookOpenIcon, XIcon } from './components/icons';
 
 interface ManualModalProps {
   onClose: () => void;
@@ -63,7 +64,8 @@ const ManualModal: React.FC<ManualModalProps> = ({ onClose }) => {
               <li><strong>Grid Distance (Points):</strong> The minimum price distance between subsequent trades in the grid.</li>
               <li><strong>Grid Lot Multiplier:</strong> Each new trade in the grid will have its lot size multiplied by this value (e.g., 0.01 -> 0.015 -> 0.0225 with a 1.5x multiplier).</li>
               <li><strong>Max Grid Trades:</strong> The maximum number of trades that can be open at once in a single grid.</li>
-              <li><strong>Trend MA Period:</strong> The period for the Simple Moving Average (SMA) used to determine the overall market trend. The EA opens buys above the MA and sells below it.</li>
+              <li><strong>Trend MA Type:</strong> The type of Moving Average to use for determining the trend (Simple or Exponential).</li>
+              <li><strong>Trend MA Period:</strong> The period for the Moving Average used to determine the overall market trend. The EA opens buys above the MA and sells below it.</li>
               <li><strong>Take Profit (USD):</strong> The total profit in your account currency at which the entire grid of trades will be closed.</li>
               <li><strong>Stop Loss (USD):</strong> The total loss in your account currency at which the entire grid will be closed as a safety measure.</li>
             </ul>
@@ -78,44 +80,6 @@ const ManualModal: React.FC<ManualModalProps> = ({ onClose }) => {
     </div>
   );
 };
-
-
-const TechnicalSummaryWidget: React.FC = () => (
-    <div className="bg-brand-secondary border border-brand-border rounded-lg p-6">
-      <h2 className="text-2xl font-semibold mb-6 flex items-center gap-3">
-        <ChartBarIcon className="w-6 h-6 text-brand-accent"/>
-        Market Technical Summary
-      </h2>
-      <div className="overflow-x-auto flex justify-center">
-        <div>
-          <iframe
-            frameBorder="0"
-            scrolling="no"
-            height="274"
-            width="425"
-            allowTransparency={true}
-            src="https://ssltools.investing.com/technical_summary.php?pairs=1,2,3,4,5,6&curr-name-color=%230059B0&fields=5m,1h,1d&force_lang=1"
-            title="Investing.com Technical Summary"
-          ></iframe>
-          <div className="w-[425px] mt-1">
-            <span className="float-left">
-              <span className="text-[11px] text-brand-muted no-underline">
-                This Technical Analysis is powered by{' '}
-                <a
-                  href="https://www.investing.com/"
-                  rel="nofollow"
-                  target="_blank"
-                  className="text-[11px] text-brand-accent font-bold"
-                >
-                  Investing.com
-                </a>
-              </span>
-            </span>
-          </div>
-        </div>
-      </div>
-    </div>
-);
 
 // Central validation logic to be used by App and passed to components if needed.
 const validateConfig = (configToValidate: EAConfig): Partial<Record<keyof EAConfig, string>> => {
@@ -137,6 +101,7 @@ const App: React.FC = () => {
     gridDistance: 2000,
     gridMultiplier: 1.5,
     maxGridTrades: 3,
+    maType: 'SMA',
     maPeriod: 50,
     takeProfit: 200,
     stopLoss: 500,
@@ -252,7 +217,7 @@ const App: React.FC = () => {
               onLoadPreset={handleLoadPreset}
               onDeletePreset={handleDeletePreset}
             />
-            <TechnicalSummaryWidget />
+            <TradingViewWidget />
           </div>
           <CodeDisplay code={generatedCode} isEnabled={isConfigValid} />
         </main>

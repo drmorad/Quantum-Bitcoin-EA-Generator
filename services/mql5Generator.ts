@@ -1,7 +1,8 @@
-
 import type { EAConfig } from '../types';
 
 export const generateMql5Code = (config: EAConfig): string => {
+  const maMethod = config.maType === 'SMA' ? 'MODE_SMA' : 'MODE_EMA';
+
   return `
 //+------------------------------------------------------------------+
 //|                                       Quantum_Bitcoin_EA.mq5 |
@@ -23,6 +24,7 @@ input int    InpMaxSpread      = ${config.maxSpread};      // Max Spread in Poin
 input int    InpGridDistance   = ${config.gridDistance};   // Min distance between grid trades in Points
 input double InpGridMultiplier = ${config.gridMultiplier.toFixed(2)};    // Lot size multiplier for grid
 input int    InpMaxGridTrades  = ${config.maxGridTrades};      // Max number of grid trades
+input ENUM_MA_METHOD InpMAMethod = ${maMethod};  // Moving Average Method
 input int    InpMAPeriod       = ${config.maPeriod};       // Moving Average Period for Trend
 input double InpTakeProfit     = ${config.takeProfit.toFixed(2)};    // Take Profit in deposit currency
 input double InpStopLoss       = ${config.stopLoss.toFixed(2)};      // Stop Loss in deposit currency
@@ -44,7 +46,7 @@ int OnInit()
    trade.SetTypeFillingBySymbol(_Symbol);
 
    //--- Create Moving Average indicator handle
-   ma_handle=iMA(_Symbol,PERIOD_H1,InpMAPeriod,0,MODE_SMA,PRICE_CLOSE);
+   ma_handle=iMA(_Symbol,PERIOD_H1,InpMAPeriod,0,InpMAMethod,PRICE_CLOSE);
    if(ma_handle==INVALID_HANDLE)
      {
       Print("Error creating MA indicator");

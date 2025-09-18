@@ -5,6 +5,7 @@ export interface EAConfig {
   gridDistance: number;
   gridMultiplier: number;
   maxGridTrades: number;
+  maType: 'SMA' | 'EMA';
   maPeriod: number;
   takeProfit: number;
   stopLoss: number;
