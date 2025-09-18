@@ -1,0 +1,5 @@
+{
+  "name": "MQL5 Quantum Bitcoin EA Generator",
+  "description": "An application to generate MQL5 Expert Advisor code for a trend-following grid strategy specifically designed for BTCUSD on the H1 timeframe. Customize parameters and get ready-to-use code for MetaTrader 5.",
+  "requestFramePermissions": []
+}
