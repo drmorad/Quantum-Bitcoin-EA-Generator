@@ -20,11 +20,13 @@ const PARAM_RANGES: Omit<Record<keyof EAConfig, { min: number; max: number }>, '
     initialLot: { min: 0.01, max: 1.0 },
     maxSpread: { min: 1, max: 100 },
     gridDistance: { min: 100, max: 5000 },
+    gridDistanceMultiplier: { min: 1.0, max: 2.5 },
     gridMultiplier: { min: 1.1, max: 2.5 },
     maxGridTrades: { min: 2, max: 15 },
     maPeriod: { min: 10, max: 200 },
     takeProfit: { min: 10, max: 500 },
-    stopLoss: { min: 100, max: 10000 },
+    takeProfitMultiplier: { min: 1.0, max: 2.0 },
+    stopLoss: { min: 0.5, max: 10.0 },
 };
 
 
@@ -43,12 +45,6 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
 
   const validateConfig = (configToValidate: EAConfig) => {
     const newErrors: Partial<Record<keyof EAConfig, string>> = {};
-
-    // Rule: Take Profit must be <= Stop Loss
-    if (configToValidate.takeProfit > configToValidate.stopLoss) {
-      newErrors.takeProfit = 'Take Profit cannot exceed Stop Loss.';
-      newErrors.stopLoss = 'Stop Loss must be >= Take Profit.';
-    }
 
     // Rule: All values must be within their defined ranges
     for (const key in PARAM_RANGES) {
@@ -176,8 +172,18 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
           min={PARAM_RANGES.gridDistance.min}
           max={PARAM_RANGES.gridDistance.max}
           step={50}
-          tooltip="The price movement against the trend needed to open another grid trade. A smaller value creates a tighter grid."
+          tooltip="The base price movement against the trend needed to open another grid trade. A smaller value creates a tighter grid."
           error={errors.gridDistance}
+        />
+        <InputSlider
+          label="Grid Distance Multiplier"
+          value={config.gridDistanceMultiplier}
+          onChange={(val) => handleChange('gridDistanceMultiplier', val)}
+          min={PARAM_RANGES.gridDistanceMultiplier.min}
+          max={PARAM_RANGES.gridDistanceMultiplier.max}
+          step={0.05}
+          tooltip="Dynamically increases grid spacing. Next Distance = Base Distance * (1 + (Num Trades - 1) * (Multiplier - 1)). A value of 1.0 disables this."
+          error={errors.gridDistanceMultiplier}
         />
         <InputSlider
           label="Grid Lot Multiplier"
@@ -247,17 +253,27 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
           min={PARAM_RANGES.takeProfit.min}
           max={PARAM_RANGES.takeProfit.max}
           step={5}
-          tooltip="When the combined profit of all grid trades reaches this amount, the EA will close all positions."
+          tooltip="The base profit target. When the combined profit of all grid trades reaches this amount (or its dynamic equivalent), the EA will close all positions."
           error={errors.takeProfit}
         />
         <InputSlider
-          label="Stop Loss (USD)"
+          label="Take Profit Multiplier"
+          value={config.takeProfitMultiplier}
+          onChange={(val) => handleChange('takeProfitMultiplier', val)}
+          min={PARAM_RANGES.takeProfitMultiplier.min}
+          max={PARAM_RANGES.takeProfitMultiplier.max}
+          step={0.05}
+          tooltip="Dynamically increases the Take Profit target as more trades open. Target = Base TP * (1 + (Num Trades - 1) * (Multiplier - 1)). A value of 1.0 disables this."
+          error={errors.takeProfitMultiplier}
+        />
+        <InputSlider
+          label="Stop Loss (% of Equity)"
           value={config.stopLoss}
           onChange={(val) => handleChange('stopLoss', val)}
           min={PARAM_RANGES.stopLoss.min}
           max={PARAM_RANGES.stopLoss.max}
-          step={100}
-          tooltip="A critical safety net. If combined loss hits this amount, the EA closes all positions to prevent further drawdown."
+          step={0.1}
+          tooltip="A critical safety net as a percentage of your total account equity. If combined loss hits this percentage, the EA closes all positions."
           error={errors.stopLoss}
         />
       </div>

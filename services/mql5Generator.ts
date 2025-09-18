@@ -22,12 +22,14 @@ input ulong  InpMagicNumber    = ${config.magicNumber};    // Magic Number
 input double InpInitialLot     = ${config.initialLot.toFixed(2)};    // Initial Lot Size
 input int    InpMaxSpread      = ${config.maxSpread};      // Max Spread in Points
 input int    InpGridDistance   = ${config.gridDistance};   // Min distance between grid trades in Points
+input double InpGridDistanceMultiplier = ${config.gridDistanceMultiplier.toFixed(2)}; // Grid Distance Multiplier
 input double InpGridMultiplier = ${config.gridMultiplier.toFixed(2)};    // Lot size multiplier for grid
 input int    InpMaxGridTrades  = ${config.maxGridTrades};      // Max number of grid trades
 input ENUM_MA_METHOD InpMAMethod = ${maMethod};  // Moving Average Method
 input int    InpMAPeriod       = ${config.maPeriod};       // Moving Average Period for Trend
 input double InpTakeProfit     = ${config.takeProfit.toFixed(2)};    // Take Profit in deposit currency
-input double InpStopLoss       = ${config.stopLoss.toFixed(2)};      // Stop Loss in deposit currency
+input double InpTakeProfitMultiplier = ${config.takeProfitMultiplier.toFixed(2)}; // Take Profit Multiplier per grid trade
+input double InpStopLoss       = ${config.stopLoss.toFixed(2)};      // Stop Loss in % of Account Equity
 
 //--- Global Variables
 CTrade         trade;
@@ -147,7 +149,8 @@ void OpenInitialTrade()
 //+------------------------------------------------------------------+
 void ManageGrid()
   {
-   if(PositionsTotalMagic(InpMagicNumber) >= InpMaxGridTrades)
+   int position_count = PositionsTotalMagic(InpMagicNumber);
+   if(position_count >= InpMaxGridTrades)
       return;
 
    double last_price = GetLastPositionPrice();
@@ -160,11 +163,18 @@ void ManageGrid()
    SymbolInfoTick(_Symbol,tick);
    
    double new_lot = NormalizeDouble(last_lot * InpGridMultiplier, 2);
+   
+   //--- Calculate dynamic Grid Distance
+   double dynamicGridDistance = InpGridDistance;
+   if(position_count > 0 && InpGridDistanceMultiplier > 1.0)
+     {
+      dynamicGridDistance = InpGridDistance * (1 + (position_count - 1) * (InpGridDistanceMultiplier - 1.0));
+     }
 
    //--- Manage Buy Grid
    if(last_type == POSITION_TYPE_BUY)
      {
-      if(tick.ask < last_price - (InpGridDistance * _Point))
+      if(tick.ask < last_price - (dynamicGridDistance * _Point))
         {
          trade.Buy(new_lot, _Symbol, tick.ask, 0, 0, "Grid Buy");
         }
@@ -172,7 +182,7 @@ void ManageGrid()
    //--- Manage Sell Grid
    else if(last_type == POSITION_TYPE_SELL)
      {
-      if(tick.bid > last_price + (InpGridDistance * _Point))
+      if(tick.bid > last_price + (dynamicGridDistance * _Point))
         {
          trade.Sell(new_lot, _Symbol, tick.bid, 0, 0, "Grid Sell");
         }
@@ -185,25 +195,38 @@ void ManageGrid()
 void CheckProfitAndLoss()
   {
    double total_profit = 0;
+   int position_count = 0;
+   
    for(int i = PositionsTotal() - 1; i >= 0; i--)
      {
       if(posInfo.SelectByIndex(i) && posInfo.Magic() == InpMagicNumber && posInfo.Symbol() == _Symbol)
         {
          total_profit += posInfo.Profit() + posInfo.Swap();
+         position_count++;
         }
      }
 
-   //--- Take Profit
-   if(total_profit >= InpTakeProfit)
+   if(position_count == 0) return;
+
+   //--- Calculate dynamic Take Profit
+   double dynamicTakeProfit = InpTakeProfit;
+   if(position_count > 1 && InpTakeProfitMultiplier > 1.0)
      {
-      Print("Take Profit hit. Total profit: ", DoubleToString(total_profit, 2));
+      dynamicTakeProfit = InpTakeProfit * (1 + (position_count - 1) * (InpTakeProfitMultiplier - 1.0));
+     }
+
+   //--- Take Profit
+   if(total_profit >= dynamicTakeProfit)
+     {
+      Print("Take Profit hit. Target: ", DoubleToString(dynamicTakeProfit, 2), ", Actual: ", DoubleToString(total_profit, 2));
       CloseAllPositions();
      }
 
    //--- Stop Loss
-   if(total_profit <= -InpStopLoss)
+   double stopLossAmount = AccountInfoDouble(ACCOUNT_EQUITY) * (InpStopLoss / 100.0);
+   if(total_profit <= -stopLossAmount)
      {
-      Print("Stop Loss hit. Total loss: ", DoubleToString(total_profit, 2));
+      Print("Stop Loss hit. Target: ", DoubleToString(InpStopLoss, 2), "% (-", DoubleToString(stopLossAmount, 2), " ", AccountInfoString(ACCOUNT_CURRENCY), "). Actual Loss: ", DoubleToString(total_profit, 2));
       CloseAllPositions();
      }
   }
