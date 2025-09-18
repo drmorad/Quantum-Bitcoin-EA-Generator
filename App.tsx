@@ -8,6 +8,8 @@ import BacktestResults from './components/BacktestResults';
 import ManualGridPlanner from './components/ManualGridPlanner';
 import AIAnalysis from './components/AIAnalysis';
 import PriceTicker from './components/PriceTicker';
+import ErrorBoundary from './components/ErrorBoundary';
+import { usePresets } from './hooks/usePresets';
 import { QuantumIcon, BookOpenIcon, XIcon } from './components/icons';
 
 interface ManualModalProps {
@@ -39,17 +41,18 @@ const ManualModal: React.FC<ManualModalProps> = ({ onClose }) => {
         <main className="p-6 overflow-y-auto text-brand-muted space-y-6">
           <section>
             <h3 className="text-xl font-semibold text-brand-accent mb-2">1. Introduction</h3>
-            <p>Welcome to the MQL5 Quantum Bitcoin EA Generator. This tool is designed to help you create a custom Expert Advisor (EA) for MetaTrader 5, specifically tailored for a trend-following grid strategy on the BTCUSD H1 timeframe. By adjusting the parameters in the configuration panel, you can generate ready-to-use MQL5 source code.</p>
+            <p>Welcome to the MQL5 Quantum Bitcoin EA Generator. This tool helps you create a custom Expert Advisor (EA) for MetaTrader 5. You can choose between two distinct strategy types: a trend-following **Grid Strategy** or a classic **Signal Strategy** based on technical indicators.</p>
           </section>
           
           <section>
             <h3 className="text-xl font-semibold text-brand-accent mb-2">2. How to Use</h3>
             <ol className="list-decimal list-inside space-y-2">
-              <li><strong>Configure Parameters:</strong> Use the sliders in the "EA Configuration" panel to set up your strategy's core logic, grid behavior, and risk management. Hover over the info icon next to each label for a detailed tooltip.</li>
-              <li><strong>Analyze on Chart:</strong> The "Interactive Chart" visualizes your MA and potential grid entry levels in real-time as you adjust parameters.</li>
-              <li><strong>Review Metrics & AI Analysis:</strong> Check the "Simulated Backtest Results" for an illustrative performance overview. Click "Analyze Configuration" in the "AI Analysis" panel to get expert suggestions from Gemini on how to refine your strategy.</li>
-              <li><strong>Manage Presets:</strong> You can save your favorite configurations as presets. The application comes with pre-loaded strategies. You can use them as a starting point, modify them, or create your own by entering a name and clicking "Save". To load a preset, select it from the dropdown menu.</li>
-              <li><strong>Generate Code:</strong> The MQL5 code is generated in real-time. If your configuration is invalid, code generation will be paused.</li>
+              <li><strong>Select Strategy Type:</strong> In the configuration panel, choose between "Grid Strategy" and "Signal Strategy". The available options will change based on your selection.</li>
+              <li><strong>Configure Parameters:</strong> Use the sliders to set up your chosen strategy's logic, risk management, and other parameters. Hover over the info icon next to each label for a detailed tooltip.</li>
+              <li><strong>Analyze on Chart:</strong> The "Interactive Chart" visualizes your MA and, for the grid strategy, potential grid entry levels.</li>
+              <li><strong>Review Metrics & AI Analysis:</strong> Check the "Simulated Backtest Results" for an illustrative performance overview. Click "Analyze Configuration" to get expert suggestions from Gemini.</li>
+              <li><strong>Manage Presets:</strong> Save your favorite configurations. The application comes with pre-loaded strategies for both types.</li>
+              <li><strong>Generate Code:</strong> The MQL5 code is generated in real-time. If your configuration has critical errors, code generation will be paused. Warnings will be shown but won't block code generation.</li>
               <li><strong>Deploy in MetaTrader 5:</strong>
                 <ul className="list-disc list-inside ml-4 mt-1">
                     <li>Click "Copy" or "Download" to get the generated code.</li>
@@ -62,18 +65,27 @@ const ManualModal: React.FC<ManualModalProps> = ({ onClose }) => {
 
           <section>
             <h3 className="text-xl font-semibold text-brand-accent mb-2">3. Parameter Explanations</h3>
+            
+            <h4 className="text-lg font-semibold text-white mt-4 mb-2">Grid Strategy Parameters</h4>
             <ul className="space-y-3">
-              <li><strong>Magic Number:</strong> A unique ID that allows the EA to distinguish its trades from others.</li>
-              <li><strong>Initial Lot Size:</strong> The trading volume for the very first trade in a grid sequence.</li>
-              <li><strong>Max Spread (Points):</strong> The EA will not open trades if the current broker spread is wider than this value.</li>
               <li><strong>Grid Distance (Points):</strong> The minimum price distance between subsequent trades in the grid.</li>
-              <li><strong>Grid Distance Multiplier:</strong> Dynamically increases grid spacing as more trades open. A value of 1.0 disables this feature.</li>
+              <li><strong>Grid Distance Multiplier:</strong> Dynamically increases grid spacing as more trades open.</li>
               <li><strong>Grid Lot Multiplier:</strong> Each new trade in the grid will have its lot size multiplied by this value.</li>
               <li><strong>Max Grid Trades:</strong> The maximum number of trades that can be open at once in a single grid.</li>
-              <li><strong>Trend MA Type & Period:</strong> The Moving Average used to determine the overall market trend. The EA opens buys above the MA and sells below it.</li>
+              <li><strong>Trend MA Type & Period:</strong> The Moving Average used to determine the overall market trend.</li>
               <li><strong>Take Profit (USD):</strong> The total profit in your account currency at which the entire grid of trades will be closed.</li>
-              <li><strong>Take Profit Multiplier:</strong> Dynamically increases the Take Profit target as more trades open. A value of 1.0 disables this feature.</li>
-              <li><strong>Stop Loss (% of Equity):</strong> The total loss as a percentage of your account equity at which the entire grid will be closed as a safety measure. This allows risk to scale with your account size.</li>
+              <li><strong>Stop Loss (% of Equity):</strong> The total loss as a percentage of your account equity at which the entire grid will be closed.</li>
+              <li><strong>Trailing Stop:</strong> A dynamic stop loss that follows profitable trades to lock in gains.</li>
+            </ul>
+
+            <h4 className="text-lg font-semibold text-white mt-6 mb-2">Signal Strategy Parameters</h4>
+            <ul className="space-y-3">
+                <li><strong>Lot Size:</strong> The fixed trading volume for each trade.</li>
+                <li><strong>MA Type & Period:</strong> The Moving Average used as a trend filter. Buys are enabled above the MA, sells below.</li>
+                <li><strong>ATR Period:</strong> The period for the Average True Range (ATR) indicator, used for volatility-based risk management.</li>
+                <li><strong>ATR Multiplier for SL/TP:</strong> These multipliers determine the Stop Loss and Take Profit distance based on the ATR value (e.g., SL = 2 * ATR).</li>
+                <li><strong>RSI Period:</strong> The period for the Relative Strength Index (RSI) indicator.</li>
+                <li><strong>RSI Oversold/Overbought:</strong> The RSI levels used to trigger entries. A buy signal occurs when RSI is below the 'Oversold' level in an uptrend, and a sell signal occurs when RSI is above the 'Overbought' level in a downtrend.</li>
             </ul>
           </section>
           
@@ -87,10 +99,76 @@ const ManualModal: React.FC<ManualModalProps> = ({ onClose }) => {
   );
 };
 
-// Central validation logic to be used by App and passed to components if needed.
-const validateConfig = (configToValidate: EAConfig): Partial<Record<keyof EAConfig, string>> => {
-    const newErrors: Partial<Record<keyof EAConfig, string>> = {};
-    // Validation for TP vs SL (USD vs %) has been removed as they are not directly comparable.
+// Dummy ranges to be used by the validator. Could be moved to a separate file.
+const PARAM_RANGES: Omit<Record<keyof EAConfig, { min: number; max: number }>, 'maType' | 'useTrailingStop' | 'strategyType' | 'signal_maType'> = {
+    magicNumber: { min: 10000, max: 99999 },
+    initialLot: { min: 0.01, max: 1.0 },
+    maxSpread: { min: 1, max: 100 },
+    gridDistance: { min: 100, max: 5000 },
+    gridDistanceMultiplier: { min: 1.0, max: 2.5 },
+    gridMultiplier: { min: 1.1, max: 2.5 },
+    maxGridTrades: { min: 2, max: 15 },
+    maPeriod: { min: 10, max: 200 },
+    takeProfit: { min: 10, max: 1000 },
+    takeProfitMultiplier: { min: 1.0, max: 2.0 },
+    stopLoss: { min: 0.5, max: 10.0 },
+    trailingStopStart: { min: 50, max: 5000 },
+    trailingStopDistance: { min: 50, max: 5000 },
+    signal_lotSize: { min: 0.01, max: 1.0 },
+    signal_maPeriod: { min: 10, max: 200 },
+    signal_atrPeriod: { min: 5, max: 50 },
+    signal_atrMultiplierSL: { min: 0.5, max: 5.0 },
+    signal_atrMultiplierTP: { min: 0.5, max: 10.0 },
+    signal_rsiPeriod: { min: 5, max: 50 },
+    signal_rsiOversold: { min: 10, max: 40 },
+    signal_rsiOverbought: { min: 60, max: 90 },
+};
+
+// Central validation logic
+const validateConfig = (config: EAConfig): Partial<Record<keyof EAConfig | 'general', string>> => {
+    const newErrors: Partial<Record<keyof EAConfig | 'general', string>> = {};
+    const relevantKeys = Object.keys(PARAM_RANGES) as (keyof typeof PARAM_RANGES)[];
+
+    // 1. Individual Parameter Range Checks
+    for (const key of relevantKeys) {
+        if (config.strategyType === 'grid' && key.startsWith('signal_')) continue;
+        if (config.strategyType === 'signal' && !key.startsWith('signal_') && !['magicNumber', 'maxSpread'].includes(key)) continue;
+
+        const value = config[key];
+        const range = PARAM_RANGES[key];
+        if (value < range.min || value > range.max) {
+            newErrors[key] = `Value must be between ${range.min} and ${range.max}.`;
+        }
+    }
+
+    // 2. Cross-Parameter Combination Checks
+    let generalWarnings = '';
+    if (config.strategyType === 'grid') {
+        // Trailing Stop Logic Error
+        if (config.useTrailingStop && config.trailingStopStart <= config.trailingStopDistance) {
+            newErrors.trailingStopStart = "Trailing Start must be greater than Trailing Distance.";
+            newErrors.trailingStopDistance = "Trailing Distance must be less than Trailing Start.";
+        }
+        // Aggressive Martingale Warning
+        if (config.gridMultiplier >= 1.8 && config.maxGridTrades >= 6) {
+             generalWarnings += 'Warning: A high Lot Multiplier with many Grid Trades is extremely risky and can lead to rapid losses.\n';
+        }
+    } else if (config.strategyType === 'signal') {
+        // RSI Levels Error
+        if (config.signal_rsiOverbought <= config.signal_rsiOversold) {
+            newErrors.signal_rsiOverbought = "Overbought level must be greater than Oversold level.";
+            newErrors.signal_rsiOversold = "Oversold level must be less than Overbought level.";
+        }
+        // Negative Risk/Reward Ratio Warning
+        if (config.signal_atrMultiplierTP < config.signal_atrMultiplierSL) {
+            generalWarnings += 'Warning: The ATR Multiplier for TP is less than for SL, resulting in a poor risk/reward ratio (< 1:1).\n';
+        }
+    }
+    
+    if(generalWarnings) {
+        newErrors.general = generalWarnings.trim();
+    }
+
     return newErrors;
 };
 
@@ -98,6 +176,7 @@ const initialConfig: EAConfig = {
     magicNumber: 13579,
     initialLot: 0.01,
     maxSpread: 50,
+    strategyType: 'grid',
     gridDistance: 2000,
     gridDistanceMultiplier: 1.0,
     gridMultiplier: 1.5,
@@ -106,14 +185,26 @@ const initialConfig: EAConfig = {
     maPeriod: 50,
     takeProfit: 200,
     takeProfitMultiplier: 1.0,
-    stopLoss: 2.0, // Now a percentage
+    stopLoss: 2.0,
+    useTrailingStop: false,
+    trailingStopStart: 500,
+    trailingStopDistance: 500,
+    signal_lotSize: 0.01,
+    signal_maType: 'EMA',
+    signal_maPeriod: 50,
+    signal_atrPeriod: 14,
+    signal_atrMultiplierSL: 2,
+    signal_atrMultiplierTP: 3,
+    signal_rsiPeriod: 14,
+    signal_rsiOversold: 30,
+    signal_rsiOverbought: 70,
 };
 
 const defaultPresets: Presets = {
-  "Balanced Trend Rider": {
+  "Balanced Trend Rider (Grid)": {
+    ...initialConfig,
+    strategyType: 'grid',
     magicNumber: 20202,
-    initialLot: 0.01,
-    maxSpread: 50,
     gridDistance: 2500,
     gridDistanceMultiplier: 1.2,
     gridMultiplier: 1.5,
@@ -121,13 +212,30 @@ const defaultPresets: Presets = {
     maType: 'SMA',
     maPeriod: 50,
     takeProfit: 250,
-    takeProfitMultiplier: 1.0,
     stopLoss: 2.5,
+    useTrailingStop: true,
+    trailingStopStart: 1000,
+    trailingStopDistance: 800,
   },
-  "Scalper's Delight": {
+  "MA/RSI Pullback (Signal)": {
+    ...initialConfig,
+    strategyType: 'signal',
+    magicNumber: 60606,
+    signal_lotSize: 0.02,
+    signal_maType: 'EMA',
+    signal_maPeriod: 50,
+    signal_atrPeriod: 14,
+    signal_atrMultiplierSL: 1.5,
+    signal_atrMultiplierTP: 2.5,
+    signal_rsiPeriod: 14,
+    signal_rsiOversold: 35,
+    signal_rsiOverbought: 65,
+  },
+  "Scalper's Delight (Grid)": {
+    ...initialConfig,
+    strategyType: 'grid',
     magicNumber: 10101,
     initialLot: 0.02,
-    maxSpread: 40,
     gridDistance: 1000,
     gridDistanceMultiplier: 1.0,
     gridMultiplier: 1.8,
@@ -135,13 +243,15 @@ const defaultPresets: Presets = {
     maType: 'EMA',
     maPeriod: 20,
     takeProfit: 100,
-    takeProfitMultiplier: 1.2,
     stopLoss: 3.0,
+    useTrailingStop: true,
+    trailingStopStart: 400,
+    trailingStopDistance: 300,
   },
-  "Volatility Harvester": {
+  "Volatility Harvester (Grid)": {
+    ...initialConfig,
+    strategyType: 'grid',
     magicNumber: 30303,
-    initialLot: 0.01,
-    maxSpread: 60,
     gridDistance: 1500,
     gridDistanceMultiplier: 1.8,
     gridMultiplier: 1.6,
@@ -149,13 +259,15 @@ const defaultPresets: Presets = {
     maType: 'EMA',
     maPeriod: 34,
     takeProfit: 300,
-    takeProfitMultiplier: 1.5,
     stopLoss: 4.0,
+    useTrailingStop: true,
+    trailingStopStart: 1200,
+    trailingStopDistance: 1000,
   },
-  "Low & Slow Accumulator": {
+  "Low & Slow Accumulator (Grid)": {
+    ...initialConfig,
+    strategyType: 'grid',
     magicNumber: 40404,
-    initialLot: 0.01,
-    maxSpread: 70,
     gridDistance: 4000,
     gridDistanceMultiplier: 1.1,
     gridMultiplier: 1.2,
@@ -163,25 +275,40 @@ const defaultPresets: Presets = {
     maType: 'SMA',
     maPeriod: 100,
     takeProfit: 500,
-    takeProfitMultiplier: 1.0,
     stopLoss: 5.0,
+    useTrailingStop: false,
+    trailingStopStart: 2000,
+    trailingStopDistance: 1500,
   },
 };
 
 const App: React.FC = () => {
   const [config, setConfig] = useState<EAConfig>(initialConfig);
-
-  const [isConfigValid, setIsConfigValid] = useState<boolean>(true);
+  const [errors, setErrors] = useState<Partial<Record<keyof EAConfig | 'general', string>>>(() => validateConfig(initialConfig));
   const [generatedCode, setGeneratedCode] = useState<string>('');
-  
-  const [presets, setPresets] = useState<Presets>({});
-  const [selectedPreset, setSelectedPreset] = useState<string>('');
-  const [newPresetName, setNewPresetName] = useState<string>('');
   const [isManualOpen, setIsManualOpen] = useState<boolean>(false);
 
+  const hasHardErrors = useMemo(() => Object.values(errors).some(e => e && !e.startsWith('Warning:')), [errors]);
+
+  const presetManager = usePresets(defaultPresets);
+
   const simulatedResults = useMemo<SimulatedResults>(() => {
-    const { takeProfit, stopLoss, gridMultiplier, maPeriod, maxGridTrades } = config;
-    // Assume a hypothetical $10,000 account for simulation purposes
+    const { takeProfit, stopLoss, gridMultiplier, maPeriod, maxGridTrades, strategyType } = config;
+    if (strategyType === 'signal') {
+        const { signal_atrMultiplierSL, signal_atrMultiplierTP, signal_maPeriod, signal_rsiPeriod } = config;
+        const riskRewardRatio = signal_atrMultiplierSL > 0 ? signal_atrMultiplierTP / signal_atrMultiplierSL : 3;
+        const profitFactor = Math.max(1.2, Math.min(3.0, riskRewardRatio * 1.1));
+        const drawdown = Math.max(8, Math.min(30, (signal_atrMultiplierSL / 1.5) * 10));
+        const winRate = Math.max(35, Math.min(70, 65 - signal_maPeriod / 10 - signal_rsiPeriod / 5));
+        const sharpeRatio = Math.max(0.6, Math.min(2.5, profitFactor * (winRate / 100) * 1.2));
+        return {
+            profitFactor: profitFactor.toFixed(2),
+            drawdown: `${drawdown.toFixed(2)}%`,
+            winRate: `${winRate.toFixed(1)}%`,
+            sharpeRatio: sharpeRatio.toFixed(2),
+        };
+    }
+    
     const stopLossUSD = (stopLoss / 100) * 10000;
     const riskRewardRatio = stopLossUSD > 0 ? takeProfit / stopLossUSD : 5;
     const profitFactor = Math.max(1.1, Math.min(3.5, 1.0 + riskRewardRatio + (gridMultiplier - 1.2) * 2));
@@ -197,88 +324,48 @@ const App: React.FC = () => {
     };
   }, [config]);
 
-  useEffect(() => {
-    try {
-      const savedPresets = localStorage.getItem('mql5-ea-presets');
-      // Check if presets exist and are not an empty object
-      if (savedPresets && savedPresets !== '{}') {
-        setPresets(JSON.parse(savedPresets));
-      } else {
-        // If no presets are saved, load and save the defaults
-        setPresets(defaultPresets);
-        localStorage.setItem('mql5-ea-presets', JSON.stringify(defaultPresets));
-      }
-    } catch (error) {
-      console.error("Failed to load or parse presets from localStorage:", error);
-      // Fallback to default presets if localStorage is corrupted or inaccessible
-      setPresets(defaultPresets);
-    }
-  }, []);
-
   const updateCode = useCallback(() => {
-    const code = generateMql5Code(config);
-    setGeneratedCode(code);
-  }, [config]);
+    if (hasHardErrors) {
+      setGeneratedCode('');
+    } else {
+      const code = generateMql5Code(config);
+      setGeneratedCode(code);
+    }
+  }, [config, hasHardErrors]);
 
   useEffect(() => {
-    if (isConfigValid) {
-        updateCode();
-    }
-  }, [config, isConfigValid, updateCode]);
+    updateCode();
+  }, [config, updateCode]);
   
-  const handleConfigChange = (newConfig: EAConfig, isValid: boolean) => {
+  const handleConfigChange = (newConfig: EAConfig) => {
+    setErrors(validateConfig(newConfig));
     setConfig(newConfig);
-    setIsConfigValid(isValid);
-    setSelectedPreset('');
+    presetManager.setSelectedPreset('');
   };
 
   const handleSavePreset = () => {
-    if (!newPresetName.trim()) {
-      alert("Please enter a name for the preset.");
-      return;
-    }
-    const updatedPresets = { ...presets, [newPresetName]: config };
-    setPresets(updatedPresets);
-    setSelectedPreset(newPresetName);
-    setNewPresetName('');
-    try {
-      localStorage.setItem('mql5-ea-presets', JSON.stringify(updatedPresets));
-    } catch (error) {
-      console.error("Failed to save presets to localStorage:", error);
-    }
+    presetManager.savePreset(presetManager.newPresetName, config);
   };
 
   const handleLoadPreset = (presetName: string) => {
-    if (presets[presetName]) {
-      const loadedConfig = presets[presetName];
+    const loadedConfig = presetManager.loadPreset(presetName);
+    if (loadedConfig) {
       const newConfig = { ...initialConfig, ...loadedConfig };
-      const validationErrors = validateConfig(newConfig);
-      const isValid = Object.keys(validationErrors).length === 0;
-      
+      setErrors(validateConfig(newConfig));
       setConfig(newConfig);
-      setIsConfigValid(isValid);
-      setSelectedPreset(presetName);
-    } else {
-      setSelectedPreset('');
     }
   };
 
   const handleDeletePreset = () => {
-    if (!selectedPreset || !presets[selectedPreset]) return;
-    const { [selectedPreset]: _, ...remainingPresets } = presets;
-    setPresets(remainingPresets);
-    setSelectedPreset('');
-    try {
-      localStorage.setItem('mql5-ea-presets', JSON.stringify(remainingPresets));
-    } catch (error) {
-      console.error("Failed to delete preset from localStorage:", error);
-    }
+    presetManager.deletePreset();
   };
 
   return (
     <div className="min-h-screen bg-brand-primary flex flex-col items-center p-4 sm:p-6 lg:p-8">
       <div className="w-full max-w-7xl mx-auto">
-        <PriceTicker />
+        <ErrorBoundary componentName="Price Ticker">
+          <PriceTicker />
+        </ErrorBoundary>
         <header className="flex items-center justify-center space-x-4 mb-8 relative">
           <QuantumIcon className="w-12 h-12 text-brand-accent"/>
           <div>
@@ -297,25 +384,40 @@ const App: React.FC = () => {
 
         <main className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <div className="flex flex-col gap-8">
-            <ConfigPanel
-              config={config}
-              onConfigChange={handleConfigChange}
-              presets={presets}
-              selectedPreset={selectedPreset}
-              newPresetName={newPresetName}
-              onNewPresetNameChange={setNewPresetName}
-              onSavePreset={handleSavePreset}
-              onLoadPreset={handleLoadPreset}
-              onDeletePreset={handleDeletePreset}
-            />
+            <ErrorBoundary componentName="Configuration Panel">
+              <ConfigPanel
+                config={config}
+                onConfigChange={handleConfigChange}
+                errors={errors}
+                presets={presetManager.presets}
+                selectedPreset={presetManager.selectedPreset}
+                newPresetName={presetManager.newPresetName}
+                onNewPresetNameChange={presetManager.setNewPresetName}
+                onSavePreset={handleSavePreset}
+                onLoadPreset={handleLoadPreset}
+                onDeletePreset={handleDeletePreset}
+              />
+            </ErrorBoundary>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <ErrorBoundary componentName="Backtest Results">
                 <BacktestResults results={simulatedResults} />
+              </ErrorBoundary>
+              <ErrorBoundary componentName="AI Analysis">
                 <AIAnalysis config={config} results={simulatedResults} />
+              </ErrorBoundary>
             </div>
-            <ManualGridPlanner config={config} />
-            <InteractiveChart config={config} />
+            {config.strategyType === 'grid' && (
+              <ErrorBoundary componentName="Manual Grid Planner">
+                <ManualGridPlanner config={config} />
+              </ErrorBoundary>
+            )}
+            <ErrorBoundary componentName="Interactive Chart">
+              <InteractiveChart config={config} />
+            </ErrorBoundary>
           </div>
-          <CodeDisplay code={generatedCode} isEnabled={isConfigValid} />
+          <ErrorBoundary componentName="Code Display">
+            <CodeDisplay code={generatedCode} isEnabled={!hasHardErrors} />
+          </ErrorBoundary>
         </main>
 
         <footer className="mt-12 text-center text-brand-muted text-sm">

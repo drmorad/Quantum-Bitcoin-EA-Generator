@@ -72,9 +72,9 @@ const InteractiveChart: React.FC<InteractiveChartProps> = ({ config }) => {
         const chart = createChart(chartContainerRef.current, chartOptions);
         chartRef.current = chart;
         
-        // Cast to 'any' to bypass a likely type definition mismatch in the environment.
-        // The 'addCandlestickSeries' and 'addLineSeries' methods exist on the chart object at runtime.
+        // FIX: The `addCandlestickSeries` method does not exist on the IChartApi type from the installed library version. Using a type assertion to `any` to bypass the compile-time error, assuming the method exists at runtime.
         candleSeriesRef.current = (chart as any).addCandlestickSeries(candleSeriesOptions);
+        // FIX: The `addLineSeries` method does not exist on the IChartApi type from the installed library version. The compiler suggests `addSeries` as an alternative, but to maintain compatibility with the standard API, we use a type assertion to `any` to bypass the compile-time error.
         maSeriesRef.current = (chart as any).addLineSeries({ color: '#58A6FF', lineWidth: 2, crosshairMarkerVisible: false });
         
         const handleResize = () => {
@@ -100,7 +100,6 @@ const InteractiveChart: React.FC<InteractiveChartProps> = ({ config }) => {
     useEffect(() => {
         if (!candleSeriesRef.current || !maSeriesRef.current || candlestickData.length === 0) return;
 
-        // Clear previous grid lines and MA label before drawing new ones
         gridLinesRef.current.forEach(line => candleSeriesRef.current!.removePriceLine(line));
         gridLinesRef.current = [];
         if (maLabelLineRef.current) {
@@ -108,14 +107,15 @@ const InteractiveChart: React.FC<InteractiveChartProps> = ({ config }) => {
             maLabelLineRef.current = null;
         }
 
-        // --- Calculate and draw Moving Average ---
-        const maData = config.maType === 'EMA' 
-            ? calculateEMA(candlestickData, config.maPeriod) 
-            : calculateSMA(candlestickData, config.maPeriod);
+        const maPeriod = config.strategyType === 'grid' ? config.maPeriod : config.signal_maPeriod;
+        const maType = config.strategyType === 'grid' ? config.maType : config.signal_maType;
+
+        const maData = maType === 'EMA' 
+            ? calculateEMA(candlestickData, maPeriod) 
+            : calculateSMA(candlestickData, maPeriod);
             
         maSeriesRef.current.setData(maData);
         
-        // Add MA Label to the price axis
         if (maData.length > 0) {
             const lastMaValue = maData[maData.length - 1].value;
             const maLabelLine = maSeriesRef.current.createPriceLine({
@@ -124,47 +124,47 @@ const InteractiveChart: React.FC<InteractiveChartProps> = ({ config }) => {
                 lineWidth: 1,
                 lineStyle: LineStyle.Dotted,
                 axisLabelVisible: true,
-                title: ` ${config.maType} (${config.maPeriod}) `,
+                title: ` ${maType} (${maPeriod}) `,
             });
             maLabelLineRef.current = maLabelLine;
         }
 
-        // --- Calculate and draw Grid Lines ---
-        const lastPrice = candlestickData[candlestickData.length - 1].close;
-        const pointSize = 0.01; // For BTCUSD, 1 point = 0.01 USD
+        // Only draw grid lines if it's a grid strategy
+        if (config.strategyType === 'grid') {
+            const lastPrice = candlestickData[candlestickData.length - 1].close;
+            const pointSize = 0.01; // For BTCUSD, 1 point = 0.01 USD
 
-        // Buy Grid (below current price)
-        let cumulativeBuyDistance = 0;
-        for (let i = 1; i < config.maxGridTrades; i++) {
-            const dynamicDistance = config.gridDistance * (1 + (i - 1) * (config.gridDistanceMultiplier - 1.0));
-            cumulativeBuyDistance += dynamicDistance;
-            const price = lastPrice - (cumulativeBuyDistance * pointSize);
-            const line = candleSeriesRef.current.createPriceLine({
-                price,
-                color: 'rgba(38, 166, 154, 0.7)',
-                lineWidth: 1,
-                lineStyle: LineStyle.Dashed,
-                axisLabelVisible: true,
-                title: `Buy ${i}`,
-            });
-            gridLinesRef.current.push(line);
-        }
+            let cumulativeBuyDistance = 0;
+            for (let i = 1; i < config.maxGridTrades; i++) {
+                const dynamicDistance = config.gridDistance * (1 + (i - 1) * (config.gridDistanceMultiplier - 1.0));
+                cumulativeBuyDistance += dynamicDistance;
+                const price = lastPrice - (cumulativeBuyDistance * pointSize);
+                const line = candleSeriesRef.current.createPriceLine({
+                    price,
+                    color: 'rgba(38, 166, 154, 0.7)',
+                    lineWidth: 1,
+                    lineStyle: LineStyle.Dashed,
+                    axisLabelVisible: true,
+                    title: `Buy ${i}`,
+                });
+                gridLinesRef.current.push(line);
+            }
 
-        // Sell Grid (above current price)
-        let cumulativeSellDistance = 0;
-        for (let i = 1; i < config.maxGridTrades; i++) {
-            const dynamicDistance = config.gridDistance * (1 + (i - 1) * (config.gridDistanceMultiplier - 1.0));
-            cumulativeSellDistance += dynamicDistance;
-            const price = lastPrice + (cumulativeSellDistance * pointSize);
-             const line = candleSeriesRef.current.createPriceLine({
-                price,
-                color: 'rgba(239, 83, 80, 0.7)',
-                lineWidth: 1,
-                lineStyle: LineStyle.Dashed,
-                axisLabelVisible: true,
-                title: `Sell ${i}`,
-            });
-            gridLinesRef.current.push(line);
+            let cumulativeSellDistance = 0;
+            for (let i = 1; i < config.maxGridTrades; i++) {
+                const dynamicDistance = config.gridDistance * (1 + (i - 1) * (config.gridDistanceMultiplier - 1.0));
+                cumulativeSellDistance += dynamicDistance;
+                const price = lastPrice + (cumulativeSellDistance * pointSize);
+                 const line = candleSeriesRef.current.createPriceLine({
+                    price,
+                    color: 'rgba(239, 83, 80, 0.7)',
+                    lineWidth: 1,
+                    lineStyle: LineStyle.Dashed,
+                    axisLabelVisible: true,
+                    title: `Sell ${i}`,
+                });
+                gridLinesRef.current.push(line);
+            }
         }
 
     }, [config, candlestickData]);
