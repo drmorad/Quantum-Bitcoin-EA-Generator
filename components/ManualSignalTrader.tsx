@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import type { EAConfig, CandlestickData, TickerData } from '../types';
 import { fetchBTCUSD_H1_Data, fetchBTCUSD_TickerData } from '../services/cryptoDataService';
-import { SignalIcon, TrendingUpIcon, TrendingDownIcon, ArrowUpIcon, ArrowDownIcon, XIcon, CheckIcon } from './icons';
+import { SignalIcon, TrendingUpIcon, TrendingDownIcon, ArrowUpIcon, ArrowDownIcon, CheckIcon, ShieldCheckIcon, TargetIcon, Volume2Icon } from './icons';
+import InputSlider from './InputSlider';
 
 interface ManualSignalTraderProps {
   config: EAConfig;
@@ -120,7 +121,32 @@ const ManualSignalTrader: React.FC<ManualSignalTraderProps> = ({ config }) => {
     const [error, setError] = useState<string | null>(null);
     const [ticker, setTicker] = useState<TickerData | null>(null);
     const [indicatorData, setIndicatorData] = useState<{ ma: number | null; rsi: number | null; atr: number | null; lastClose: number | null }>({ ma: null, rsi: null, atr: null, lastClose: null });
+    const [orderPlaced, setOrderPlaced] = useState<'buy' | 'sell' | null>(null);
     const prevSignalStatusRef = useRef<string | null>(null);
+
+    // Local state for manual SL/TP adjustments
+    const [manualAtrMultiplierSL, setManualAtrMultiplierSL] = useState(config.signal_atrMultiplierSL);
+    const [manualAtrMultiplierTP, setManualAtrMultiplierTP] = useState(config.signal_atrMultiplierTP);
+
+    // State for sound customization
+    const [showSoundSettings, setShowSoundSettings] = useState(false);
+    const [soundSettings, setSoundSettings] = useState({
+        type: 'sine' as 'sine' | 'square' | 'sawtooth' | 'triangle',
+        buyFrequency: 880,
+        sellFrequency: 523,
+        duration: 150,
+    });
+
+    const handleSoundSettingChange = <K extends keyof typeof soundSettings>(key: K, value: (typeof soundSettings)[K]) => {
+        setSoundSettings(prev => ({ ...prev, [key]: value }));
+    };
+    
+    // Reset local multipliers when the global config changes (e.g., new preset loaded)
+    useEffect(() => {
+        setManualAtrMultiplierSL(config.signal_atrMultiplierSL);
+        setManualAtrMultiplierTP(config.signal_atrMultiplierTP);
+    }, [config.signal_atrMultiplierSL, config.signal_atrMultiplierTP]);
+
 
     const fetchData = useCallback(async () => {
         setIsLoading(true);
@@ -132,8 +158,6 @@ const ManualSignalTrader: React.FC<ManualSignalTraderProps> = ({ config }) => {
             ]);
             setTicker(tickerData);
             
-            // For signal consistency, calculations are based on completed bars.
-            // The last item in ohlcData is the current, incomplete bar.
             const completedBars = ohlcData.slice(0, -1);
 
             if(completedBars.length < 2) throw new Error("Not enough historical data.");
@@ -190,28 +214,25 @@ const ManualSignalTrader: React.FC<ManualSignalTraderProps> = ({ config }) => {
         const prevStatus = prevSignalStatusRef.current;
         const currentStatus = signalStatus.type;
 
-        // Play sound only on transition to a new 'buy' or 'sell' signal
         if (currentStatus !== prevStatus && (currentStatus === 'buy' || currentStatus === 'sell')) {
             if (currentStatus === 'buy') {
-                playSound(880, 150, 'sine'); // Higher pitch for buy
-            } else { // sell
-                playSound(523, 200, 'sawtooth'); // Lower, more 'alerting' sound for sell
+                playSound(soundSettings.buyFrequency, soundSettings.duration, soundSettings.type);
+            } else {
+                playSound(soundSettings.sellFrequency, soundSettings.duration, soundSettings.type);
             }
         }
-
-        // Update the ref for the next render
         prevSignalStatusRef.current = currentStatus;
-    }, [signalStatus]);
+    }, [signalStatus, soundSettings]);
 
     const formatCurrency = (value: number) => value.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
 
     const handlePlaceOrder = (type: 'Buy' | 'Sell') => {
-        if (!ticker || !indicatorData.atr) return;
+        if (!ticker || !indicatorData.atr || orderPlaced) return;
 
-        const { signal_lotSize, signal_atrMultiplierSL, signal_atrMultiplierTP } = config;
-        const entryPrice = type === 'Buy' ? ticker.price : ticker.price; // Could use ask/bid if available
-        const slDistance = indicatorData.atr * signal_atrMultiplierSL;
-        const tpDistance = indicatorData.atr * signal_atrMultiplierTP;
+        const { signal_lotSize } = config;
+        const entryPrice = ticker.price;
+        const slDistance = indicatorData.atr * manualAtrMultiplierSL;
+        const tpDistance = indicatorData.atr * manualAtrMultiplierTP;
 
         const stopLoss = type === 'Buy' ? entryPrice - slDistance : entryPrice + slDistance;
         const takeProfit = type === 'Buy' ? entryPrice + tpDistance : entryPrice - tpDistance;
@@ -221,10 +242,37 @@ const ManualSignalTrader: React.FC<ManualSignalTraderProps> = ({ config }) => {
             `  - Type: ${type} Market\n` +
             `  - Lots: ${signal_lotSize.toFixed(2)}\n` +
             `  - Entry: ${formatCurrency(entryPrice)}\n` +
-            `  - Stop Loss: ${formatCurrency(stopLoss)} (${slDistance.toFixed(2)} pts)\n` +
-            `  - Take Profit: ${formatCurrency(takeProfit)} (${tpDistance.toFixed(2)} pts)`
+            `  - Stop Loss: ${formatCurrency(stopLoss)} (ATR Multiplier: ${manualAtrMultiplierSL.toFixed(1)}x)\n` +
+            `  - Take Profit: ${formatCurrency(takeProfit)} (ATR Multiplier: ${manualAtrMultiplierTP.toFixed(1)}x)`
         );
+
+        const orderTypeLower = type.toLowerCase() as 'buy' | 'sell';
+        setOrderPlaced(orderTypeLower);
+
+        setTimeout(() => {
+            setOrderPlaced(null);
+        }, 2000);
     };
+    
+    const trend = indicatorData.lastClose && indicatorData.ma ? (indicatorData.lastClose > indicatorData.ma ? 'up' : 'down') : 'neutral';
+
+    const targetSL = useMemo(() => {
+        if (!ticker || !indicatorData.atr) return { buy: null, sell: null };
+        const slDistance = indicatorData.atr * manualAtrMultiplierSL;
+        return {
+            buy: ticker.price - slDistance,
+            sell: ticker.price + slDistance,
+        };
+    }, [ticker, indicatorData.atr, manualAtrMultiplierSL]);
+
+    const targetTP = useMemo(() => {
+        if (!ticker || !indicatorData.atr) return { buy: null, sell: null };
+        const tpDistance = indicatorData.atr * manualAtrMultiplierTP;
+        return {
+            buy: ticker.price + tpDistance,
+            sell: ticker.price - tpDistance,
+        };
+    }, [ticker, indicatorData.atr, manualAtrMultiplierTP]);
 
     if (error) {
          return (
@@ -246,8 +294,6 @@ const ManualSignalTrader: React.FC<ManualSignalTraderProps> = ({ config }) => {
         );
     }
     
-    const trend = indicatorData.lastClose && indicatorData.ma ? (indicatorData.lastClose > indicatorData.ma ? 'up' : 'down') : 'neutral';
-    
     const signalColorClasses = {
         buy: 'bg-green-500/10 border-green-500/50 text-green-400',
         sell: 'bg-red-500/10 border-red-500/50 text-red-400',
@@ -255,11 +301,33 @@ const ManualSignalTrader: React.FC<ManualSignalTraderProps> = ({ config }) => {
         loading: 'bg-brand-primary/50 border-brand-border text-brand-muted animate-pulse',
     };
 
+    const AdjusterButton: React.FC<{ onClick: () => void, children: React.ReactNode, 'aria-label': string, size?: 'sm' | 'md' }> = ({ onClick, children, 'aria-label': ariaLabel, size = 'md' }) => {
+        const sizeClasses = size === 'sm' ? 'w-6 h-6 text-base' : 'w-8 h-8 text-lg';
+        return (
+            <button
+                onClick={onClick}
+                aria-label={ariaLabel}
+                className={`${sizeClasses} flex items-center justify-center bg-brand-primary border border-brand-border rounded-full text-brand-muted hover:bg-brand-accent hover:text-white transition-colors`}
+            >
+                {children}
+            </button>
+        );
+    };
+
+    const SoundTypeButton: React.FC<{ type: 'sine' | 'square' | 'sawtooth' | 'triangle' }> = ({ type }) => (
+        <button
+            onClick={() => handleSoundSettingChange('type', type)}
+            className={`px-3 py-1.5 rounded-md text-sm capitalize transition-colors ${soundSettings.type === type ? 'bg-brand-accent text-white' : 'bg-brand-primary hover:bg-brand-border'}`}
+        >
+            {type}
+        </button>
+    );
+
     return (
         <div className="bg-brand-secondary border border-brand-border rounded-lg p-6 h-full flex flex-col">
             <h2 className="text-2xl font-semibold flex items-center gap-3 mb-4"><SignalIcon className="w-6 h-6 text-brand-accent"/>Manual Signal Trader</h2>
             
-            <div className="grid grid-cols-3 gap-4 mb-4 text-center">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4 text-center">
                 <div className="bg-brand-primary/50 p-3 rounded-lg">
                     <p className="text-sm text-brand-muted">MA ({config.signal_maType} {config.signal_maPeriod})</p>
                     <div className={`text-lg font-bold font-mono flex items-center justify-center gap-2 ${trend === 'up' ? 'text-green-400' : trend === 'down' ? 'text-red-400' : 'text-brand-muted'}`}>
@@ -272,9 +340,77 @@ const ManualSignalTrader: React.FC<ManualSignalTraderProps> = ({ config }) => {
                     <p className="text-lg font-bold font-mono text-white">{indicatorData.rsi?.toFixed(2) ?? '...'}</p>
                 </div>
                 <div className="bg-brand-primary/50 p-3 rounded-lg">
-                    <p className="text-sm text-brand-muted">Current ATR ({config.signal_atrPeriod})</p>
+                    <p className="text-sm text-brand-muted">ATR ({config.signal_atrPeriod})</p>
                     <p className="text-lg font-bold font-mono text-white">{indicatorData.atr?.toFixed(2) ?? '...'}</p>
                 </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 mb-4">
+                <div className="bg-brand-primary/50 p-3 rounded-lg flex flex-col justify-center">
+                    <div className="flex justify-between items-center mb-2">
+                        <p className="text-sm text-brand-muted flex items-center gap-1.5">
+                            <ShieldCheckIcon className="w-4 h-4"/> Target SL
+                        </p>
+                        <div className="flex items-center gap-2">
+                            <AdjusterButton size="sm" onClick={() => setManualAtrMultiplierSL(prev => Math.max(0.1, parseFloat((prev - 0.1).toFixed(1))))} aria-label="Decrease SL Multiplier">-</AdjusterButton>
+                            <span className="font-mono text-sm font-bold text-white">{manualAtrMultiplierSL.toFixed(1)}x</span>
+                            <AdjusterButton size="sm" onClick={() => setManualAtrMultiplierSL(prev => parseFloat((prev + 0.1).toFixed(1)))} aria-label="Increase SL Multiplier">+</AdjusterButton>
+                        </div>
+                    </div>
+                    <p className="text-xl font-bold font-mono text-center text-white">
+                        {trend === 'up' && targetSL.buy ? formatCurrency(targetSL.buy) :
+                         trend === 'down' && targetSL.sell ? formatCurrency(targetSL.sell) :
+                         '...'}
+                    </p>
+                </div>
+                 <div className="bg-brand-primary/50 p-3 rounded-lg flex flex-col justify-center">
+                    <div className="flex justify-between items-center mb-2">
+                        <p className="text-sm text-brand-muted flex items-center gap-1.5">
+                            <TargetIcon className="w-4 h-4"/> Target TP
+                        </p>
+                        <div className="flex items-center gap-2">
+                             <AdjusterButton size="sm" onClick={() => setManualAtrMultiplierTP(prev => Math.max(0.1, parseFloat((prev - 0.1).toFixed(1))))} aria-label="Decrease TP Multiplier">-</AdjusterButton>
+                             <span className="font-mono text-sm font-bold text-white">{manualAtrMultiplierTP.toFixed(1)}x</span>
+                             <AdjusterButton size="sm" onClick={() => setManualAtrMultiplierTP(prev => parseFloat((prev + 0.1).toFixed(1)))} aria-label="Increase TP Multiplier">+</AdjusterButton>
+                        </div>
+                    </div>
+                    <p className="text-xl font-bold font-mono text-center text-white">
+                        {trend === 'up' && targetTP.buy ? formatCurrency(targetTP.buy) :
+                         trend === 'down' && targetTP.sell ? formatCurrency(targetTP.sell) :
+                         '...'}
+                    </p>
+                </div>
+            </div>
+            
+            <div className="border-t border-brand-border/50 pt-4 mb-4">
+                <button onClick={() => setShowSoundSettings(!showSoundSettings)} className="w-full flex justify-between items-center text-left text-brand-muted hover:text-white transition-colors">
+                    <span className="flex items-center gap-2 font-semibold">
+                        <Volume2Icon className="w-5 h-5"/> Sound Settings
+                    </span>
+                    <span className="text-sm">{showSoundSettings ? 'Hide' : 'Show'}</span>
+                </button>
+                {showSoundSettings && (
+                    <div className="mt-4 p-4 bg-brand-primary/50 border border-brand-border rounded-lg space-y-4">
+                        <div>
+                            <label className="font-medium text-sm text-brand-muted mb-2 block">Sound Type</label>
+                            <div className="grid grid-cols-4 gap-2">
+                                <SoundTypeButton type="sine" />
+                                <SoundTypeButton type="square" />
+                                <SoundTypeButton type="sawtooth" />
+                                <SoundTypeButton type="triangle" />
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <InputSlider label="Buy Frequency (Hz)" value={soundSettings.buyFrequency} onChange={v => handleSoundSettingChange('buyFrequency', v)} min={200} max={1200} step={10} tooltip="Pitch of the buy signal alert."/>
+                            <InputSlider label="Sell Frequency (Hz)" value={soundSettings.sellFrequency} onChange={v => handleSoundSettingChange('sellFrequency', v)} min={200} max={1200} step={10} tooltip="Pitch of the sell signal alert."/>
+                        </div>
+                        <InputSlider label="Duration (ms)" value={soundSettings.duration} onChange={v => handleSoundSettingChange('duration', v)} min={50} max={500} step={10} tooltip="Length of the sound alert."/>
+                        <div className="grid grid-cols-2 gap-4 pt-2">
+                             <button onClick={() => playSound(soundSettings.buyFrequency, soundSettings.duration, soundSettings.type)} className="w-full py-2 bg-green-500/20 text-green-400 font-semibold rounded-md hover:bg-green-500/40 hover:text-white transition-colors">Test Buy Alert</button>
+                             <button onClick={() => playSound(soundSettings.sellFrequency, soundSettings.duration, soundSettings.type)} className="w-full py-2 bg-red-500/20 text-red-400 font-semibold rounded-md hover:bg-red-500/40 hover:text-white transition-colors">Test Sell Alert</button>
+                        </div>
+                    </div>
+                )}
             </div>
 
             <div className={`p-4 rounded-lg border text-center text-lg font-bold mb-4 transition-colors ${signalColorClasses[signalStatus.type]}`}>
@@ -284,17 +420,33 @@ const ManualSignalTrader: React.FC<ManualSignalTraderProps> = ({ config }) => {
             <div className="grid grid-cols-2 gap-4 mt-auto">
                 <button 
                     onClick={() => handlePlaceOrder('Buy')}
-                    disabled={signalStatus.type !== 'buy'}
+                    disabled={signalStatus.type !== 'buy' || orderPlaced !== null}
                     className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-md bg-green-500/20 text-green-400 font-semibold transition-colors hover:bg-green-500/40 hover:text-white disabled:bg-brand-border/20 disabled:text-brand-muted disabled:cursor-not-allowed"
                 >
-                    <CheckIcon className="w-5 h-5"/> Place Manual Buy
+                    {orderPlaced === 'buy' ? (
+                        <>
+                            <CheckIcon className="w-5 h-5"/> Order Placed!
+                        </>
+                    ) : (
+                        <>
+                            <TrendingUpIcon className="w-5 h-5"/> Place Manual Buy
+                        </>
+                    )}
                 </button>
                  <button 
                     onClick={() => handlePlaceOrder('Sell')}
-                    disabled={signalStatus.type !== 'sell'}
+                    disabled={signalStatus.type !== 'sell' || orderPlaced !== null}
                     className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-md bg-red-500/20 text-red-400 font-semibold transition-colors hover:bg-red-500/40 hover:text-white disabled:bg-brand-border/20 disabled:text-brand-muted disabled:cursor-not-allowed"
                 >
-                    <XIcon className="w-5 h-5"/> Place Manual Sell
+                    {orderPlaced === 'sell' ? (
+                         <>
+                            <CheckIcon className="w-5 h-5"/> Order Placed!
+                        </>
+                    ) : (
+                        <>
+                           <TrendingDownIcon className="w-5 h-5"/> Place Manual Sell
+                        </>
+                    )}
                 </button>
             </div>
              <p className="text-xs text-brand-muted text-center italic mt-4">
