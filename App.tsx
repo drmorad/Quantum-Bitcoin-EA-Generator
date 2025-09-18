@@ -6,6 +6,7 @@ import CodeDisplay from './components/CodeDisplay';
 import InteractiveChart from './components/InteractiveChart';
 import BacktestResults from './components/BacktestResults';
 import ManualGridPlanner from './components/ManualGridPlanner';
+import ManualSignalTrader from './components/ManualSignalTrader';
 import AIAnalysis from './components/AIAnalysis';
 import PriceTicker from './components/PriceTicker';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -132,7 +133,7 @@ const validateConfig = (config: EAConfig): Partial<Record<keyof EAConfig | 'gene
     // 1. Individual Parameter Range Checks
     for (const key of relevantKeys) {
         if (config.strategyType === 'grid' && key.startsWith('signal_')) continue;
-        if (config.strategyType === 'signal' && !key.startsWith('signal_') && !['magicNumber', 'maxSpread'].includes(key)) continue;
+        if (config.strategyType === 'signal' && !key.startsWith('signal_') && !['magicNumber', 'maxSpread', 'initialLot'].includes(key)) continue;
 
         const value = config[key];
         const range = PARAM_RANGES[key];
@@ -230,6 +231,20 @@ const defaultPresets: Presets = {
     signal_rsiPeriod: 14,
     signal_rsiOversold: 35,
     signal_rsiOverbought: 65,
+  },
+  "Manual Signal Trader": {
+      ...initialConfig,
+      strategyType: 'signal',
+      magicNumber: 70707,
+      signal_lotSize: 0.01,
+      signal_maType: 'EMA',
+      signal_maPeriod: 100,
+      signal_atrPeriod: 14,
+      signal_atrMultiplierSL: 2.0,
+      signal_atrMultiplierTP: 3.0,
+      signal_rsiPeriod: 14,
+      signal_rsiOversold: 30,
+      signal_rsiOverbought: 70,
   },
   "Scalper's Delight (Grid)": {
     ...initialConfig,
@@ -406,9 +421,13 @@ const App: React.FC = () => {
                 <AIAnalysis config={config} results={simulatedResults} />
               </ErrorBoundary>
             </div>
-            {config.strategyType === 'grid' && (
+            {config.strategyType === 'grid' ? (
               <ErrorBoundary componentName="Manual Grid Planner">
                 <ManualGridPlanner config={config} />
+              </ErrorBoundary>
+            ) : (
+               <ErrorBoundary componentName="Manual Signal Trader">
+                <ManualSignalTrader config={config} />
               </ErrorBoundary>
             )}
             <ErrorBoundary componentName="Interactive Chart">

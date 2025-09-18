@@ -55,7 +55,16 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
 }) => {
 
   const handleChange = (key: keyof EAConfig, value: number | 'SMA' | 'EMA' | boolean | 'grid' | 'signal') => {
-    const newConfig = { ...config, [key]: value };
+    let newConfig = { ...config, [key]: value };
+
+    // Sync lot sizes if signal strategy is active
+    if (key === 'signal_lotSize' && newConfig.strategyType === 'signal') {
+        newConfig.initialLot = value as number;
+    } else if (key === 'initialLot' && newConfig.strategyType === 'signal') {
+        newConfig.signal_lotSize = value as number;
+    }
+
+
     onConfigChange(newConfig);
   };
 
