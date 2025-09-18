@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import type { EAConfig, CandlestickData, TickerData } from '../types';
 import { fetchBTCUSD_H1_Data, fetchBTCUSD_TickerData } from '../services/cryptoDataService';
 import { SignalIcon, TrendingUpIcon, TrendingDownIcon, ArrowUpIcon, ArrowDownIcon, XIcon, CheckIcon } from './icons';
@@ -42,29 +42,76 @@ const calculateATR = (data: CandlestickData[], period: number): number | null =>
     }
     if (trueRanges.length < period) return null;
     let atr = 0;
-    for (let i = trueRanges.length - period; i < trueRanges.length; i++) {
+    // Wilder's smoothing for ATR
+    for (let i = 0; i < period; i++) {
         atr += trueRanges[i];
     }
-    return atr / period;
+    atr /= period;
+
+    for (let i = period; i < trueRanges.length; i++) {
+        atr = (atr * (period - 1) + trueRanges[i]) / period;
+    }
+    return atr;
 };
 
 const calculateRSI = (data: CandlestickData[], period: number): number | null => {
     if (data.length < period + 1) return null;
-    let gains = 0;
-    let losses = 0;
-    for (let i = data.length - period; i < data.length; i++) {
-        const change = data[i].close - data[i-1].close;
-        if (change > 0) {
-            gains += change;
+
+    const changes = data.slice(1).map((candle, i) => candle.close - data[i].close);
+    let avgGain = 0;
+    let avgLoss = 0;
+    
+    // Calculate initial average gain and loss
+    for (let i = 0; i < period; i++) {
+        if (changes[i] > 0) {
+            avgGain += changes[i];
         } else {
-            losses -= change;
+            avgLoss -= changes[i];
         }
     }
-    const avgGain = gains / period;
-    const avgLoss = losses / period;
+    avgGain /= period;
+    avgLoss /= period;
+    
+    // Smooth the rest
+    for (let i = period; i < changes.length; i++) {
+        const change = changes[i];
+        if (change > 0) {
+            avgGain = (avgGain * (period - 1) + change) / period;
+            avgLoss = (avgLoss * (period - 1)) / period;
+        } else {
+            avgLoss = (avgLoss * (period - 1) - change) / period;
+            avgGain = (avgGain * (period - 1)) / period;
+        }
+    }
+    
     if (avgLoss === 0) return 100;
     const rs = avgGain / avgLoss;
     return 100 - (100 / (1 + rs));
+};
+
+const playSound = (frequency = 440, duration = 150, type: 'sine' | 'square' | 'sawtooth' | 'triangle' = 'sine') => {
+  try {
+    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+    if (audioContext.state === 'suspended') {
+      audioContext.resume();
+    }
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+
+    oscillator.type = type;
+    oscillator.frequency.value = frequency;
+    gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+    gainNode.gain.linearRampToValueAtTime(0.3, audioContext.currentTime + 0.01);
+
+    oscillator.start(audioContext.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.00001, audioContext.currentTime + duration / 1000);
+    oscillator.stop(audioContext.currentTime + duration / 1000);
+  } catch (e) {
+    console.error("Could not play sound alert. User interaction might be required to enable audio.", e);
+  }
 };
 
 
@@ -73,6 +120,7 @@ const ManualSignalTrader: React.FC<ManualSignalTraderProps> = ({ config }) => {
     const [error, setError] = useState<string | null>(null);
     const [ticker, setTicker] = useState<TickerData | null>(null);
     const [indicatorData, setIndicatorData] = useState<{ ma: number | null; rsi: number | null; atr: number | null; lastClose: number | null }>({ ma: null, rsi: null, atr: null, lastClose: null });
+    const prevSignalStatusRef = useRef<string | null>(null);
 
     const fetchData = useCallback(async () => {
         setIsLoading(true);
@@ -138,6 +186,23 @@ const ManualSignalTrader: React.FC<ManualSignalTraderProps> = ({ config }) => {
         return { type: 'neutral', text: 'NO SIGNAL' };
     }, [indicatorData, config, isLoading]);
 
+    useEffect(() => {
+        const prevStatus = prevSignalStatusRef.current;
+        const currentStatus = signalStatus.type;
+
+        // Play sound only on transition to a new 'buy' or 'sell' signal
+        if (currentStatus !== prevStatus && (currentStatus === 'buy' || currentStatus === 'sell')) {
+            if (currentStatus === 'buy') {
+                playSound(880, 150, 'sine'); // Higher pitch for buy
+            } else { // sell
+                playSound(523, 200, 'sawtooth'); // Lower, more 'alerting' sound for sell
+            }
+        }
+
+        // Update the ref for the next render
+        prevSignalStatusRef.current = currentStatus;
+    }, [signalStatus]);
+
     const formatCurrency = (value: number) => value.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
 
     const handlePlaceOrder = (type: 'Buy' | 'Sell') => {
@@ -196,10 +261,10 @@ const ManualSignalTrader: React.FC<ManualSignalTraderProps> = ({ config }) => {
             
             <div className="grid grid-cols-3 gap-4 mb-4 text-center">
                 <div className="bg-brand-primary/50 p-3 rounded-lg">
-                    <p className="text-sm text-brand-muted">Trend</p>
-                    <div className={`text-lg font-bold flex items-center justify-center gap-2 ${trend === 'up' ? 'text-green-400' : trend === 'down' ? 'text-red-400' : 'text-brand-muted'}`}>
-                        {trend === 'up' ? <ArrowUpIcon className="w-5 h-5"/> : trend === 'down' ? <ArrowDownIcon className="w-5 h-5"/> : null}
-                        <span>{trend.charAt(0).toUpperCase() + trend.slice(1)}</span>
+                    <p className="text-sm text-brand-muted">MA ({config.signal_maType} {config.signal_maPeriod})</p>
+                    <div className={`text-lg font-bold font-mono flex items-center justify-center gap-2 ${trend === 'up' ? 'text-green-400' : trend === 'down' ? 'text-red-400' : 'text-brand-muted'}`}>
+                        {trend === 'up' ? <ArrowUpIcon className="w-4 h-4"/> : trend === 'down' ? <ArrowDownIcon className="w-4 h-4"/> : null}
+                        <span>{indicatorData.ma?.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) ?? '...'}</span>
                     </div>
                 </div>
                 <div className="bg-brand-primary/50 p-3 rounded-lg">
@@ -207,7 +272,7 @@ const ManualSignalTrader: React.FC<ManualSignalTraderProps> = ({ config }) => {
                     <p className="text-lg font-bold font-mono text-white">{indicatorData.rsi?.toFixed(2) ?? '...'}</p>
                 </div>
                 <div className="bg-brand-primary/50 p-3 rounded-lg">
-                    <p className="text-sm text-brand-muted">ATR ({config.signal_atrPeriod})</p>
+                    <p className="text-sm text-brand-muted">Current ATR ({config.signal_atrPeriod})</p>
                     <p className="text-lg font-bold font-mono text-white">{indicatorData.atr?.toFixed(2) ?? '...'}</p>
                 </div>
             </div>

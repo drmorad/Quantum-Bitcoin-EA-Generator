@@ -19,7 +19,7 @@ const generateGridStrategyCode = (config: EAConfig): string => {
 
 //--- EA Inputs
 input ulong  InpMagicNumber    = ${config.magicNumber};    // Magic Number
-input double InpInitialLot     = ${config.initialLot.toFixed(2)};    // Initial Lot Size
+input double InpInitialLot     = ${config.initialLot};    // Initial Lot Size
 input int    InpMaxSpread      = ${config.maxSpread};      // Max Spread in Points
 input int    InpGridDistance   = ${config.gridDistance};   // Min distance between grid trades in Points
 input double InpGridDistanceMultiplier = ${config.gridDistanceMultiplier.toFixed(2)}; // Grid Distance Multiplier
@@ -104,12 +104,18 @@ bool IsNewBar()
 //+------------------------------------------------------------------+
 void OpenInitialTrade()
   {
+   //--- Get MA value from the last completed bar for a stable signal
    double ma_value[1];
-   if(CopyBuffer(ma_handle,0,0,1,ma_value)<=0) return;
+   if(CopyBuffer(ma_handle,0,1,1,ma_value)<=0)
+     {
+      Print("Could not copy MA buffer, not enough data?");
+      return;
+     }
 
    MqlTick tick;
    SymbolInfoTick(_Symbol, tick);
 
+   //--- Trend condition: Is the current price above/below the MA of the last completed bar?
    if(tick.ask > ma_value[0])
      {
       trade.Buy(InpInitialLot, _Symbol, tick.ask, 0, 0, "Initial Buy");
@@ -324,7 +330,7 @@ const generateSignalStrategyCode = (config: EAConfig): string => {
 //--- EA Inputs
 input ulong  InpMagicNumber    = ${config.magicNumber};    // Magic Number
 input int    InpMaxSpread      = ${config.maxSpread};      // Max Spread in Points
-input double InpLotSize        = ${config.signal_lotSize.toFixed(2)};      // Fixed Lot Size
+input double InpLotSize        = ${config.signal_lotSize};      // Fixed Lot Size
 
 //--- Indicator Inputs
 input ENUM_MA_METHOD InpMAMethod = ${maMethod};  // Moving Average Method
