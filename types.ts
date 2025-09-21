@@ -1,27 +1,24 @@
-import { Time } from 'lightweight-charts';
 
-export type AIPersonality = 'Quantitative Analyst' | 'Risk Manager' | 'Aggressive Scalper' | 'Contrarian Investor';
+import type { Time } from 'lightweight-charts';
+
+export type StrategyType = 'grid' | 'signal';
+export type MAType = 'SMA' | 'EMA';
 
 export interface EAConfig {
-  // Common
   magicNumber: number;
-  initialRiskPercent: number; // New field for grid strategy
   maxSpread: number;
-  
-  // Backtest Settings
   startDate: string;
   endDate: string;
   initialDeposit: number;
-
-  // Strategy Type
-  strategyType: 'grid' | 'signal';
-
-  // Grid Strategy Params
+  strategyType: StrategyType;
+  
+  // Grid strategy specific
+  initialRiskPercent: number;
   gridDistance: number;
   gridDistanceMultiplier: number;
   gridMultiplier: number;
   maxGridTrades: number;
-  maType: 'SMA' | 'EMA';
+  maType: MAType;
   maPeriod: number;
   takeProfit: number;
   takeProfitMultiplier: number;
@@ -30,9 +27,9 @@ export interface EAConfig {
   trailingStopStart: number;
   trailingStopDistance: number;
 
-  // Signal Strategy Params
+  // Signal strategy specific
   signal_lotSize: number;
-  signal_maType: 'SMA' | 'EMA';
+  signal_maType: MAType;
   signal_maPeriod: number;
   signal_atrPeriod: number;
   signal_atrMultiplierSL: number;
@@ -45,18 +42,13 @@ export interface EAConfig {
   signal_trailingStopDistance: number;
 }
 
-export type Presets = Record<string, EAConfig>;
+export type Presets = Record<string, Partial<EAConfig>>;
 
 export interface SimulatedResults {
-    profitFactor: string;
-    drawdown: string;
-    winRate: string;
-    sharpeRatio: string;
-}
-
-export interface OptimizationResult {
-  value: number;
-  results: SimulatedResults;
+  profitFactor: string;
+  drawdown: string;
+  winRate: string;
+  sharpeRatio: string;
 }
 
 export interface CandlestickData {
@@ -68,18 +60,22 @@ export interface CandlestickData {
 }
 
 export interface TickerData {
-  price: number;
-  changeAbsolute: number;
-  changePercentage: number;
+    price: number;
+    changeAbsolute: number;
+    changePercentage: number;
 }
 
 export interface LiveAnalysisData {
-  latestPrice: number;
-  maValue: number;
-  trend: 'Uptrend' | 'Downtrend';
-  rsiValue?: number;
-  atrValue?: number;
+    latestPrice: number;
+    maValue: number;
+    trend: 'Uptrend' | 'Downtrend';
+    rsiValue?: number;
+    atrValue?: number;
+    macd?: { macdLine: number; signalLine: number; histogram: number; };
+    stochastic?: { k: number; d: number; };
 }
+
+export type AIPersonality = 'Quantitative Analyst' | 'Risk Manager' | 'Aggressive Scalper' | 'Contrarian Investor';
 
 export interface FundamentalData {
     sentiment: 'Bullish' | 'Bearish' | 'Neutral';
@@ -93,4 +89,9 @@ export interface TradingSignal {
     takeProfit: number;
     stopLoss: number;
     rationale: string;
+}
+
+export interface OptimizationResult {
+    value: number;
+    results: SimulatedResults;
 }

@@ -1,4 +1,6 @@
-import type { CandlestickData, TickerData } from '../types';
+
+// FIX: Use explicit file extension for imports
+import type { CandlestickData, TickerData } from '../types.ts';
 import type { Time } from 'lightweight-charts';
 
 // Switched to CryptoCompare Public API for better CORS compatibility in sandboxed environments.

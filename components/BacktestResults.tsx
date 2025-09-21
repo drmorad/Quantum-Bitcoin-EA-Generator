@@ -1,6 +1,8 @@
+
 import React from 'react';
-import type { SimulatedResults } from '../types';
-import { CalculatorIcon, TrendingUpIcon, TrendingDownIcon, PercentIcon, TargetIcon } from './icons';
+// FIX: Use explicit file extension for imports
+import type { SimulatedResults } from '../types.ts';
+import { CalculatorIcon, TrendingUpIcon, TrendingDownIcon, PercentIcon, TargetIcon } from './icons.tsx';
 
 interface BacktestResultsProps {
   results: SimulatedResults;

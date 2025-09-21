@@ -1,5 +1,7 @@
+
 import React, { useState, useEffect } from 'react';
-import { InfoIcon, TuneIcon } from './icons';
+// FIX: Use explicit file extension for imports
+import { InfoIcon, TuneIcon } from './icons.tsx';
 
 interface InputSliderProps {
   label: string;

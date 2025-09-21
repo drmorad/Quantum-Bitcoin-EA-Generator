@@ -1,7 +1,9 @@
+
 import React, { useState, useEffect, useRef } from 'react';
-import type { TickerData } from '../types';
-import { priceStreamService } from '../services/cryptoDataService';
-import { ArrowUpIcon, ArrowDownIcon } from './icons';
+// FIX: Use explicit file extension for imports
+import type { TickerData } from '../types.ts';
+import { priceStreamService } from '../services/cryptoDataService.ts';
+import { ArrowUpIcon, ArrowDownIcon } from './icons.tsx';
 
 const PriceTicker: React.FC = () => {
     const [data, setData] = useState<TickerData | null>(null);

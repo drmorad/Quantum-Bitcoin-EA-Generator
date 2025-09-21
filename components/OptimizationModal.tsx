@@ -1,6 +1,8 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
-import type { EAConfig, OptimizationResult } from '../types';
-import { XIcon, TuneIcon, SparklesIcon } from './icons';
+// FIX: Use explicit file extension for imports
+import type { EAConfig, OptimizationResult } from '../types.ts';
+import { XIcon, TuneIcon, SparklesIcon } from './icons.tsx';
 
 interface OptimizationModalProps {
   isOpen: boolean;
@@ -48,36 +50,36 @@ const OptimizationModal: React.FC<OptimizationModalProps> = ({ isOpen, onClose, 
     });
   }, [parameterKey, currentValue, isInt, defaultRange, defaultStep]);
 
+  const handleRun = () => {
+    const startNum = parseFloat(form.start);
+    const endNum = parseFloat(form.end);
+    const stepNum = parseFloat(form.step);
+    const newErrors: Record<string, string> = {};
+
+    if (isNaN(startNum)) newErrors.start = "Invalid start value";
+    if (isNaN(endNum)) newErrors.end = "Invalid end value";
+    if (isNaN(stepNum)) newErrors.step = "Invalid step value";
+    
+    if (Object.keys(newErrors).length === 0) {
+        if (startNum >= endNum) newErrors.start = "Start must be less than end";
+        if (stepNum <= 0) newErrors.step = "Step must be positive";
+        const steps = (endNum - startNum) / stepNum;
+        if (steps > 50) newErrors.end = "Range too large (max 50 steps)";
+        if (Math.round(steps) < 1) newErrors.step = "Step is too large for the range";
+    }
+
+    setErrors(newErrors);
+    if (Object.keys(newErrors).length === 0) {
+        onRun(parameterKey, startNum, endNum, stepNum);
+    }
+  };
+
   useEffect(() => {
-    const validateAndRun = () => {
-        const startNum = parseFloat(form.start);
-        const endNum = parseFloat(form.end);
-        const stepNum = parseFloat(form.step);
-        const newErrors: Record<string, string> = {};
-
-        if (isNaN(startNum)) newErrors.start = "Invalid start value";
-        if (isNaN(endNum)) newErrors.end = "Invalid end value";
-        if (isNaN(stepNum)) newErrors.step = "Invalid step value";
-        
-        if (Object.keys(newErrors).length === 0) {
-            if (startNum >= endNum) newErrors.start = "Start must be less than end";
-            if (stepNum <= 0) newErrors.step = "Step must be positive";
-            const steps = (endNum - startNum) / stepNum;
-            if (steps > 50) newErrors.end = "Range too large (max 50 steps)";
-            if (Math.round(steps) < 1) newErrors.step = "Step is too large for the range";
-        }
-
-        setErrors(newErrors);
-        if (Object.keys(newErrors).length === 0) {
-            onRun(parameterKey, startNum, endNum, stepNum);
-        }
-    };
-    
-    const handler = setTimeout(validateAndRun, 500); // 500ms debounce
-    
-    return () => clearTimeout(handler);
-
-  }, [form.start, form.end, form.step, parameterKey, onRun]);
+    if (!isLoading) {
+      handleRun();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.start, form.end, form.step, parameterKey, isLoading]);
 
 
   const bestResult = useMemo(() => {
@@ -109,6 +111,9 @@ const OptimizationModal: React.FC<OptimizationModalProps> = ({ isOpen, onClose, 
                 <NumberInput label="End Value" id="end" value={form.end} onChange={e => setForm({...form, end: e.target.value})} error={errors.end} />
                 <NumberInput label="Step" id="step" value={form.step} onChange={e => setForm({...form, step: e.target.value})} error={errors.step} />
             </fieldset>
+             <button onClick={handleRun} disabled={isLoading || Object.keys(errors).length > 0} className="w-full mt-4 px-4 py-2 bg-brand-accent text-white font-semibold rounded-md hover:bg-blue-500 disabled:opacity-50 transition-colors">
+                {isLoading ? 'Optimizing...' : 'Run Optimization'}
+            </button>
           </div>
           
           <div className="w-full md:w-2/3 p-6 overflow-y-auto">

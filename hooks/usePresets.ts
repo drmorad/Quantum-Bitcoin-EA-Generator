@@ -1,5 +1,7 @@
+
 import { useState, useEffect, useCallback, useRef } from 'react';
-import type { EAConfig, Presets } from '../types';
+// FIX: Use explicit file extension for imports
+import type { EAConfig, Presets } from '../types.ts';
 
 const PRESETS_STORAGE_KEY = 'mql5-ea-presets';
 

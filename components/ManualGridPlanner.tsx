@@ -1,6 +1,8 @@
+
 import React, { useState } from 'react';
-import type { EAConfig } from '../types';
-import { GridIcon, DollarSignIcon, SendIcon } from './icons';
+// FIX: Use explicit file extension for imports
+import type { EAConfig } from '../types.ts';
+import { GridIcon, DollarSignIcon, SendIcon } from './icons.tsx';
 
 interface ManualGridPlannerProps {
   config: EAConfig;

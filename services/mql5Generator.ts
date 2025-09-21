@@ -1,4 +1,6 @@
-import type { EAConfig } from '../types';
+
+// FIX: Use explicit file extension for imports
+import type { EAConfig } from '../types.ts';
 
 /**
  * Generates the MQL5 file header comment block.

@@ -1,7 +1,9 @@
+
 import React from 'react';
-import type { EAConfig, Presets } from '../types';
-import InputSlider from './InputSlider';
-import { SettingsIcon, TrashIcon, GridIcon, SignalIcon, ShieldCheckIcon, AlertTriangleIcon, CalendarIcon } from './icons';
+// FIX: Use explicit file extension for imports
+import type { EAConfig, Presets } from '../types.ts';
+import InputSlider from './InputSlider.tsx';
+import { SettingsIcon, TrashIcon, GridIcon, SignalIcon, ShieldCheckIcon, AlertTriangleIcon, CalendarIcon } from './icons.tsx';
 
 interface ConfigPanelProps {
   config: EAConfig;

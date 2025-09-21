@@ -1,6 +1,8 @@
 
+
 import React, { Component, ReactNode } from 'react';
-import { AlertTriangleIcon } from './icons';
+// FIX: Use explicit file extension for imports
+import { AlertTriangleIcon } from './icons.tsx';
 
 interface Props {
   children: ReactNode;

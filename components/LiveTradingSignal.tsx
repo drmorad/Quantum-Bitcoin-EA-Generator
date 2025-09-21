@@ -1,30 +1,44 @@
+
 import React, { useState, useCallback } from 'react';
 import { marked } from 'marked';
-import type { TradingSignal, CandlestickData, LiveAnalysisData } from '../types';
-import { SignalIcon } from './icons';
-import { generateTradingSignal } from '../services/aiService';
-import { fetchBTCUSD_H1_Data } from '../services/cryptoDataService';
-import { fetchFundamentalData } from '../services/fundamentalDataService';
+// FIX: Use explicit file extension for imports
+import type { TradingSignal, CandlestickData, LiveAnalysisData } from '../types.ts';
+import { SignalIcon } from './icons.tsx';
+import { generateTradingSignal } from '../services/aiService.ts';
+import { fetchBTCUSD_H1_Data } from '../services/cryptoDataService.ts';
+import { fetchFundamentalData } from '../services/fundamentalDataService.ts';
+
+const calculateEMA = (data: number[], period: number): number[] => {
+    if (data.length < period) return [];
+    const k = 2 / (period + 1);
+    const emaArray: number[] = [];
+    let sma = data.slice(0, period).reduce((a, b) => a + b, 0) / period;
+    emaArray.push(sma);
+    for (let i = period; i < data.length; i++) {
+        const ema = (data[i] * k) + (emaArray[emaArray.length - 1] * (1 - k));
+        emaArray.push(ema);
+    }
+    return emaArray;
+};
+
 
 const calculateLiveIndicators = (data: CandlestickData[]): LiveAnalysisData => {
     const latestPrice = data.length > 0 ? data[data.length - 1].close : 0;
+    const closePrices = data.map(d => d.close);
     
     let maValue = 0;
     let rsiValue: number | undefined = undefined;
     let atrValue: number | undefined = undefined;
+    let macd: LiveAnalysisData['macd'] | undefined = undefined;
+    let stochastic: LiveAnalysisData['stochastic'] | undefined = undefined;
 
     const maPeriod = 50; // Use a standard 50 EMA for general analysis
     const rsiPeriod = 14;
     const atrPeriod = 14;
 
     if (data.length >= maPeriod) {
-        // EMA calculation
-        let ema = data.slice(0, maPeriod).reduce((acc, val) => acc + val.close, 0) / maPeriod;
-        const multiplier = 2 / (maPeriod + 1);
-        for (let i = maPeriod; i < data.length; i++) {
-            ema = (data[i].close - ema) * multiplier + ema;
-        }
-        maValue = ema;
+        const emaValues = calculateEMA(closePrices, maPeriod);
+        maValue = emaValues[emaValues.length -1];
     }
 
     if (data.length > rsiPeriod) {
@@ -54,10 +68,53 @@ const calculateLiveIndicators = (data: CandlestickData[]): LiveAnalysisData => {
         }
         atrValue = trueRanges.reduce((a, b) => a + b, 0) / atrPeriod;
     }
+
+    // MACD Calculation (12, 26, 9)
+    const macdFastPeriod = 12;
+    const macdSlowPeriod = 26;
+    const macdSignalPeriod = 9;
+
+    if (closePrices.length >= macdSlowPeriod + macdSignalPeriod) {
+        const emaFast = calculateEMA(closePrices, macdFastPeriod);
+        const emaSlow = calculateEMA(closePrices, macdSlowPeriod);
+        const alignedEmaFast = emaFast.slice(emaFast.length - emaSlow.length);
+        const macdLineData = emaSlow.map((slow, i) => alignedEmaFast[i] - slow);
+        const signalLineData = calculateEMA(macdLineData, macdSignalPeriod);
+        
+        const macdLine = macdLineData[macdLineData.length - 1];
+        const signalLine = signalLineData[signalLineData.length - 1];
+        const histogram = macdLine - signalLine;
+
+        macd = { macdLine, signalLine, histogram };
+    }
+
+    // Stochastic Oscillator Calculation (14, 3, 3)
+    const stochPeriod = 14;
+    const stochDPeriod = 3;
+
+    if (data.length >= stochPeriod + stochDPeriod - 1) {
+        const kValues: number[] = [];
+        for (let i = stochPeriod - 1; i < data.length; i++) {
+            const periodSlice = data.slice(i - stochPeriod + 1, i + 1);
+            const lowestLow = Math.min(...periodSlice.map(d => d.low));
+            const highestHigh = Math.max(...periodSlice.map(d => d.high));
+            const currentClose = periodSlice[periodSlice.length - 1].close;
+            
+            const k = 100 * ((currentClose - lowestLow) / (highestHigh - lowestLow || 1));
+            kValues.push(isNaN(k) ? 0 : k);
+        }
+
+        if (kValues.length >= stochDPeriod) {
+            const dValuesSlice = kValues.slice(-stochDPeriod);
+            const dValue = dValuesSlice.reduce((a, b) => a + b, 0) / stochDPeriod; // Simple Moving Average for %D
+            const kValue = kValues[kValues.length - 1];
+            stochastic = { k: kValue, d: dValue };
+        }
+    }
     
     const trend = latestPrice > maValue ? 'Uptrend' : 'Downtrend';
     
-    return { latestPrice, maValue, trend, rsiValue, atrValue };
+    return { latestPrice, maValue, trend, rsiValue, atrValue, macd, stochastic };
 }
 
 const SignalDisplay: React.FC<{ signal: TradingSignal }> = ({ signal }) => {

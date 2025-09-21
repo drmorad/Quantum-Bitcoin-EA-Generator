@@ -1,5 +1,7 @@
+
 import { GoogleGenAI, Type } from "@google/genai";
-import type { EAConfig, SimulatedResults, LiveAnalysisData, AIPersonality, FundamentalData, TradingSignal } from '../types';
+// FIX: Use explicit file extension for imports
+import type { EAConfig, SimulatedResults, LiveAnalysisData, AIPersonality, FundamentalData, TradingSignal } from '../types.ts';
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
@@ -126,25 +128,40 @@ export const generateAnalysis = async (prompt: string, personality: AIPersonalit
 };
 
 export const getSignalPromptTemplate = (liveData: LiveAnalysisData, fundamentals: FundamentalData): string => {
-    return `
-You are an expert market analyst and trader for BTCUSD on the H1 timeframe. Your task is to synthesize the provided technical and fundamental data into a single, actionable trading signal. You MUST provide a response in the specified JSON format.
-
-**Current Market Data:**
+    
+    let technicalData = `
 - **Asset:** BTCUSD
 - **Timeframe:** H1 (1-hour)
 - **Latest Price:** $${liveData.latestPrice.toFixed(2)}
 - **50-Period EMA:** $${liveData.maValue.toFixed(2)}
 - **Overall Trend (based on price vs EMA):** ${liveData.trend}
 - **14-Period RSI:** ${liveData.rsiValue?.toFixed(2) ?? 'N/A'}
-- **14-Period ATR (Volatility):** $${liveData.atrValue?.toFixed(2) ?? 'N/A'}
+- **14-Period ATR (Volatility):** $${liveData.atrValue?.toFixed(2) ?? 'N/A'}`;
+
+    if (liveData.macd) {
+        technicalData += `
+- **MACD (12,26,9):** Line: ${liveData.macd.macdLine.toFixed(2)}, Signal: ${liveData.macd.signalLine.toFixed(2)}, Hist: ${liveData.macd.histogram.toFixed(2)}`;
+    }
+    if (liveData.stochastic) {
+        technicalData += `
+- **Stochastic (14,3,3):** %K: ${liveData.stochastic.k.toFixed(2)}, %D: ${liveData.stochastic.d.toFixed(2)}`;
+    }
+
+    return `
+You are an expert market analyst and trader for BTCUSD on the H1 timeframe. Your task is to synthesize the provided technical and fundamental data into a single, actionable trading signal. You MUST provide a response in the specified JSON format.
+
+**Current Market Data:**
+${technicalData}
 
 **Fundamental Analysis:**
 - **Market Sentiment:** ${fundamentals.sentiment}
 - **Key Headline:** "${fundamentals.headline}"
 
 **Your Task:**
-1.  **Analyze the Confluence:** Examine how the technical indicators align or diverge with the fundamental sentiment.
-    - Is the trend confirmed by momentum (RSI)?
+1.  **Analyze the Confluence:** Examine how the technical indicators (EMA, RSI, ATR, MACD, Stochastic) align or diverge with the fundamental sentiment.
+    - Is the trend confirmed by momentum (RSI & MACD histogram)?
+    - Are oscillators (RSI, Stochastic) in overbought/oversold territory? Does this suggest a pullback or a reversal?
+    - Has there been a recent MACD or Stochastic crossover event?
     - Is the sentiment supporting the current price action?
     - Is volatility (ATR) high or low, and how does that affect risk?
 2.  **Formulate a Trade Thesis:** Based on your analysis, decide on the most probable short-term direction. State whether you will BUY, SELL, or HOLD.

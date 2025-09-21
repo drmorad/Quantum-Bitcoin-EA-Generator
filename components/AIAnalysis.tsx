@@ -1,9 +1,11 @@
+
 import React, { useState, useCallback, useEffect } from 'react';
 import { marked } from 'marked';
-import type { EAConfig, SimulatedResults, CandlestickData, LiveAnalysisData, AIPersonality } from '../types';
-import { SparklesIcon } from './icons';
-import { generateAnalysis, getPromptTemplate } from '../services/aiService';
-import { fetchBTCUSD_H1_Data } from '../services/cryptoDataService';
+// FIX: Use explicit file extension for imports
+import type { EAConfig, SimulatedResults, CandlestickData, LiveAnalysisData, AIPersonality } from '../types.ts';
+import { SparklesIcon } from './icons.tsx';
+import { generateAnalysis, getPromptTemplate } from '../services/aiService.ts';
+import { fetchBTCUSD_H1_Data } from '../services/cryptoDataService.ts';
 
 interface AIAnalysisProps {
   config: EAConfig;

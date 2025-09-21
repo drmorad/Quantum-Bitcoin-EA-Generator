@@ -1,5 +1,7 @@
+
 import React, { useState, useEffect } from 'react';
-import { CodeIcon, CopyIcon, CheckIcon, DownloadIcon, LockIcon, XIcon } from './icons';
+// FIX: Use explicit file extension for imports
+import { CodeIcon, CopyIcon, CheckIcon, DownloadIcon, LockIcon, XIcon } from './icons.tsx';
 
 interface CodeDisplayProps {
   code: string;
@@ -38,7 +40,7 @@ const CodeDisplay: React.FC<CodeDisplayProps> = ({ code, isEnabled, onClose, isM
   };
   
   return (
-    <div className={`bg-brand-secondary border border-brand-border rounded-lg flex flex-col relative ${isModal ? 'max-h-[90vh]' : 'h-full max-h-[1600px] sticky top-8'}`}>
+    <div className={`bg-brand-secondary border border-brand-border rounded-lg flex flex-col relative ${isModal ? 'max-h-[90vh]' : 'h-full max-h-[1600px]'}`}>
       <div className="flex justify-between items-center p-4 border-b border-brand-border flex-shrink-0">
         <h2 className="text-xl font-semibold flex items-center gap-3">
           <CodeIcon className="w-6 h-6 text-brand-accent"/>
