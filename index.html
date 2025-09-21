@@ -13,12 +13,41 @@
             colors: {
               'brand-primary': '#0D1117',
               'brand-secondary': '#161B22',
-              'brand-accent': '#58A6FF',
+              'brand-accent': '#F97316', // Vibrant Orange
+              'brand-gold': '#FBBF24', // Rich Gold/Amber
               'brand-muted': '#8B949E',
               'brand-border': '#30363D',
+              'brand-buy': '#26A69A',
+              'brand-sell': '#EF5350',
             },
+            // Add prose styles for rendered markdown
+            typography: ({ theme }) => ({
+              invert: {
+                css: {
+                  '--tw-prose-body': theme('colors.brand-muted'),
+                  '--tw-prose-headings': theme('colors.white'),
+                  '--tw-prose-lead': theme('colors.brand-muted'),
+                  '--tw-prose-links': theme('colors.brand-accent'),
+                  '--tw-prose-bold': theme('colors.white'),
+                  '--tw-prose-counters': theme('colors.brand-muted'),
+                  '--tw-prose-bullets': theme('colors.brand-border'),
+                  '--tw-prose-hr': theme('colors.brand-border'),
+                  '--tw-prose-quotes': theme('colors.brand-muted'),
+                  '--tw-prose-quote-borders': theme('colors.brand-border'),
+                  '--tw-prose-captions': theme('colors.brand-muted'),
+                  '--tw-prose-code': theme('colors.white'),
+                  '--tw-prose-pre-code': theme('colors.brand-muted'),
+                  '--tw-prose-pre-bg': theme('colors.brand-primary'),
+                  '--tw-prose-th-borders': theme('colors.brand-border'),
+                  '--tw-prose-td-borders': theme('colors.brand-border'),
+                },
+              },
+            }),
           },
         },
+        plugins: [
+          require('@tailwindcss/typography'),
+        ],
       }
     </script>
   <script type="importmap">

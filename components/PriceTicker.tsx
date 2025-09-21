@@ -1,28 +1,46 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import type { TickerData } from '../types';
-import { fetchBTCUSD_TickerData } from '../services/cryptoDataService';
+import { priceStreamService } from '../services/cryptoDataService';
 import { ArrowUpIcon, ArrowDownIcon } from './icons';
 
 const PriceTicker: React.FC = () => {
     const [data, setData] = useState<TickerData | null>(null);
     const [error, setError] = useState<string | null>(null);
-
-    const fetchData = useCallback(async () => {
-        try {
-            const tickerData = await fetchBTCUSD_TickerData();
-            setData(tickerData);
-            if (error) setError(null); // Clear previous error on success
-        } catch (e) {
-            setError("Price feed unavailable");
-            console.error("Failed to fetch ticker data:", e);
-        }
-    }, [error]);
+    const [priceFlash, setPriceFlash] = useState('');
+    const prevPriceRef = useRef<number | null>(null);
 
     useEffect(() => {
-        fetchData(); // Fetch immediately on mount
-        const intervalId = setInterval(fetchData, 5000); // Poll every 5 seconds
-        return () => clearInterval(intervalId); // Cleanup on unmount
-    }, [fetchData]);
+        const handleUpdate = (tickerData: TickerData | null, err: Error | null) => {
+            if (err) {
+                // Only set error if we don't have any data to display yet
+                setData(currentData => {
+                    if (!currentData) {
+                        setError("Price feed unavailable");
+                    }
+                    return currentData; // Don't clear data on intermittent errors
+                });
+            } else if (tickerData) {
+                if (prevPriceRef.current !== null) {
+                    if (tickerData.price > prevPriceRef.current) {
+                        setPriceFlash('bg-brand-buy/30');
+                    } else if (tickerData.price < prevPriceRef.current) {
+                        setPriceFlash('bg-brand-sell/30');
+                    }
+                }
+                prevPriceRef.current = tickerData.price;
+                setData(tickerData);
+                setError(null); // Clear error on successful update
+
+                setTimeout(() => setPriceFlash(''), 250);
+            }
+        };
+        
+        priceStreamService.subscribe(handleUpdate);
+
+        return () => {
+            priceStreamService.unsubscribe(handleUpdate);
+        };
+    }, []);
 
     const TickerSkeleton = () => (
         <div className="w-full bg-brand-secondary border border-brand-border rounded-lg p-3 my-4 animate-pulse">
@@ -48,7 +66,7 @@ const PriceTicker: React.FC = () => {
 
     const { price, changeAbsolute, changePercentage } = data;
     const isUp = changeAbsolute >= 0;
-    const changeColor = isUp ? 'text-green-400' : 'text-red-400';
+    const changeColor = isUp ? 'text-brand-buy' : 'text-brand-sell';
 
     return (
         <div className="w-full bg-brand-secondary border border-brand-border rounded-lg p-3 my-4">
@@ -56,7 +74,7 @@ const PriceTicker: React.FC = () => {
                 <div className="font-bold text-white">
                     <span className="text-brand-muted">BTC/USD</span>
                 </div>
-                <div className="font-mono text-xl font-bold text-white">
+                <div className={`font-mono text-xl font-bold text-white px-2 rounded-md transition-colors duration-200 ${priceFlash}`}>
                     {price.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}
                 </div>
                 <div className={`font-mono font-semibold flex items-center gap-2 ${changeColor}`}>

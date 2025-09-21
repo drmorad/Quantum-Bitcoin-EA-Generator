@@ -1,18 +1,19 @@
 import type { CandlestickData, TickerData } from '../types';
 import type { Time } from 'lightweight-charts';
 
-// Switched to Binance Public API for better stability. No API key required.
-const API_BASE = 'https://api.binance.com/api/v3';
-const SYMBOL = 'BTCUSDT';
+// Switched to CryptoCompare Public API for better CORS compatibility in sandboxed environments.
+const API_BASE = 'https://min-api.cryptocompare.com/data';
+const SYMBOL = 'BTC';
+const CURRENCY = 'USD';
 const BARS_TO_FETCH = 200;
 
 /**
- * Fetches the last 200 hours of BTCUSDT H1 OHLC data from Binance.
+ * Fetches the last 200 hours of BTC/USD H1 OHLC data from CryptoCompare.
  */
 export const fetchBTCUSD_H1_Data = async (): Promise<CandlestickData[]> => {
-    const apiUrl = `${API_BASE}/klines?symbol=${SYMBOL}&interval=1h&limit=${BARS_TO_FETCH}`;
+    // histohour endpoint returns up to 2000 records, so 200 is safe.
+    const apiUrl = `${API_BASE}/v2/histohour?fsym=${SYMBOL}&tsym=${CURRENCY}&limit=${BARS_TO_FETCH}`;
 
-    // Binance API has CORS headers, so a proxy is not needed.
     try {
         const response = await fetch(apiUrl);
         if (!response.ok) {
@@ -20,18 +21,18 @@ export const fetchBTCUSD_H1_Data = async (): Promise<CandlestickData[]> => {
         }
         const data = await response.json();
 
-        if (!Array.isArray(data)) {
-            throw new Error("Invalid data format received from API");
+        if (data.Response !== 'Success' || !data.Data || !Array.isArray(data.Data.Data)) {
+            throw new Error(data.Message || "Invalid data format received from API");
         }
 
         // Format the data for lightweight-charts
-        // Binance response format: [OpenTime, Open, High, Low, Close, Volume, ...]
-        const formattedData: CandlestickData[] = data.map((d: (string | number)[]) => ({
-            time: (d[0] as number) / 1000 as Time, // Convert ms to seconds for lightweight-charts
-            open: parseFloat(d[1] as string),
-            high: parseFloat(d[2] as string),
-            low: parseFloat(d[3] as string),
-            close: parseFloat(d[4] as string),
+        // CryptoCompare response format: { Data: { Data: [{ time, open, high, low, close, ... }] } }
+        const formattedData: CandlestickData[] = data.Data.Data.map((d: any) => ({
+            time: d.time as Time, // Already in seconds
+            open: d.open,
+            high: d.high,
+            low: d.low,
+            close: d.close,
         }));
 
         return formattedData;
@@ -43,10 +44,10 @@ export const fetchBTCUSD_H1_Data = async (): Promise<CandlestickData[]> => {
 };
 
 /**
- * Fetches the latest BTCUSDT price summary for the ticker from Binance.
+ * Fetches the latest BTC/USD price summary for the ticker from CryptoCompare.
  */
 export const fetchBTCUSD_TickerData = async (): Promise<TickerData> => {
-    const apiUrl = `${API_BASE}/ticker/24hr?symbol=${SYMBOL}`;
+    const apiUrl = `${API_BASE}/pricemultifull?fsyms=${SYMBOL}&tsyms=${CURRENCY}`;
 
     try {
         const response = await fetch(apiUrl);
@@ -55,14 +56,15 @@ export const fetchBTCUSD_TickerData = async (): Promise<TickerData> => {
         }
         const data = await response.json();
 
-        if (!data || typeof data.lastPrice === 'undefined') {
-            throw new Error("Invalid ticker data format received from API");
+        const ticker = data?.RAW?.[SYMBOL]?.[CURRENCY];
+        if (!ticker || typeof ticker.PRICE === 'undefined') {
+            throw new Error("Invalid ticker data format received from CryptoCompare API");
         }
         
         return {
-            price: parseFloat(data.lastPrice),
-            changeAbsolute: parseFloat(data.priceChange),
-            changePercentage: parseFloat(data.priceChangePercent) / 100, // Convert percentage string to a decimal
+            price: ticker.PRICE,
+            changeAbsolute: ticker.CHANGE24HOUR,
+            changePercentage: ticker.CHANGEPCT24HOUR / 100, // Convert percentage to a decimal
         };
 
     } catch (error) {
@@ -70,3 +72,80 @@ export const fetchBTCUSD_TickerData = async (): Promise<TickerData> => {
         throw error;
     }
 }
+
+// --- Real-time Price Streaming Service ---
+
+type Subscriber = (data: TickerData | null, error: Error | null) => void;
+
+class PriceStreamService {
+    private static instance: PriceStreamService;
+    private subscribers: Set<Subscriber> = new Set();
+    private intervalId: ReturnType<typeof setInterval> | null = null;
+    private lastData: TickerData | null = null;
+    private readonly POLLING_INTERVAL = 2000; // 2 seconds
+
+    private constructor() {}
+
+    public static getInstance(): PriceStreamService {
+        if (!PriceStreamService.instance) {
+            PriceStreamService.instance = new PriceStreamService();
+        }
+        return PriceStreamService.instance;
+    }
+
+    private startPolling() {
+        if (this.intervalId) return; // Already polling
+
+        console.log(`PriceStreamService: Starting polling every ${this.POLLING_INTERVAL}ms.`);
+        // Fetch immediately on start to provide data to the first subscriber without delay
+        this.fetchData(); 
+        
+        this.intervalId = setInterval(this.fetchData, this.POLLING_INTERVAL);
+    }
+
+    private stopPolling() {
+        if (this.intervalId) {
+            console.log('PriceStreamService: Stopping polling.');
+            clearInterval(this.intervalId);
+            this.intervalId = null;
+        }
+    }
+
+    private fetchData = async () => {
+        try {
+            const data = await fetchBTCUSD_TickerData();
+            this.lastData = data;
+            this.notifySubscribers(data, null);
+        } catch (error) {
+            console.error("PriceStreamService: Error fetching ticker data.", error);
+            // We notify subscribers of the error, they can decide how to handle it (e.g., show a message but keep stale data)
+            this.notifySubscribers(null, error as Error);
+        }
+    }
+
+    private notifySubscribers(data: TickerData | null, error: Error | null) {
+        this.subscribers.forEach(callback => callback(data, error));
+    }
+
+    public subscribe(callback: Subscriber) {
+        this.subscribers.add(callback);
+        // Immediately provide last known data if available, so new components don't have to wait for the next poll
+        if (this.lastData) {
+            callback(this.lastData, null); 
+        }
+        // If this is the first subscriber, start the polling process
+        if (!this.intervalId) {
+            this.startPolling();
+        }
+    }
+
+    public unsubscribe(callback: Subscriber) {
+        this.subscribers.delete(callback);
+        // If there are no more subscribers, stop polling to save resources
+        if (this.subscribers.size === 0) {
+            this.stopPolling();
+        }
+    }
+}
+
+export const priceStreamService = PriceStreamService.getInstance();

@@ -11,16 +11,17 @@ interface MetricCardProps {
     label: string;
     value: string;
     iconBgClass: string;
+    textColorClass: string;
 }
 
-const MetricCard: React.FC<MetricCardProps> = ({ Icon, label, value, iconBgClass }) => (
+const MetricCard: React.FC<MetricCardProps> = ({ Icon, label, value, iconBgClass, textColorClass }) => (
     <div className="bg-brand-primary/50 border border-brand-border rounded-lg p-4 flex items-center gap-4 h-full">
         <div className={`p-3 rounded-full ${iconBgClass}`}>
             <Icon className="w-6 h-6 text-white" />
         </div>
         <div>
             <p className="text-sm text-brand-muted">{label}</p>
-            <p className="text-xl font-bold text-white">{value}</p>
+            <p className={`text-xl font-bold ${textColorClass}`}>{value}</p>
         </div>
     </div>
 );
@@ -39,25 +40,29 @@ const BacktestResults: React.FC<BacktestResultsProps> = ({ results }) => {
             Icon={TrendingUpIcon}
             label="Profit Factor"
             value={results.profitFactor}
-            iconBgClass="bg-green-500/30"
+            iconBgClass="bg-brand-buy/30"
+            textColorClass="text-brand-buy"
         />
         <MetricCard 
             Icon={TrendingDownIcon}
             label="Max Drawdown"
             value={results.drawdown}
-            iconBgClass="bg-red-500/30"
+            iconBgClass="bg-brand-sell/30"
+            textColorClass="text-brand-sell"
         />
         <MetricCard 
             Icon={PercentIcon}
             label="Win Rate"
             value={results.winRate}
-            iconBgClass="bg-blue-500/30"
+            iconBgClass="bg-brand-accent/30"
+            textColorClass="text-brand-accent"
         />
         <MetricCard 
             Icon={TargetIcon}
             label="Sharpe Ratio"
             value={results.sharpeRatio}
-            iconBgClass="bg-purple-500/30"
+            iconBgClass="bg-brand-gold/30"
+            textColorClass="text-brand-gold"
         />
       </div>
       <p className="text-xs text-brand-muted text-center italic pt-4">

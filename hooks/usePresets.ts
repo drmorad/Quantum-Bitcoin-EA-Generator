@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import type { EAConfig, Presets } from '../types';
 
 const PRESETS_STORAGE_KEY = 'mql5-ea-presets';
@@ -12,6 +12,7 @@ export const usePresets = (defaultPresets: Presets) => {
   const [presets, setPresets] = useState<Presets>({});
   const [selectedPreset, setSelectedPreset] = useState<string>('');
   const [newPresetName, setNewPresetName] = useState<string>('');
+  const isInitialMount = useRef(true);
 
   // Effect to load presets from localStorage on initial render
   useEffect(() => {
@@ -20,9 +21,9 @@ export const usePresets = (defaultPresets: Presets) => {
       if (savedPresets && savedPresets !== '{}') {
         setPresets(JSON.parse(savedPresets));
       } else {
-        // If no presets are saved, load and save the defaults
+        // If no presets are saved, just load the defaults into state.
+        // The persistence effect below will handle saving them.
         setPresets(defaultPresets);
-        localStorage.setItem(PRESETS_STORAGE_KEY, JSON.stringify(defaultPresets));
       }
     } catch (error) {
       console.error("Failed to load or parse presets from localStorage:", error);
@@ -30,6 +31,21 @@ export const usePresets = (defaultPresets: Presets) => {
       setPresets(defaultPresets);
     }
   }, [defaultPresets]);
+
+  // Automatically save presets to localStorage whenever the state changes.
+  useEffect(() => {
+    // We use a ref to skip the very first render, preventing an empty
+    // object from overwriting stored presets before they are loaded.
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+    try {
+      localStorage.setItem(PRESETS_STORAGE_KEY, JSON.stringify(presets));
+    } catch (error) {
+      console.error("Failed to save presets to localStorage:", error);
+    }
+  }, [presets]);
 
   /**
    * Saves the current configuration as a new preset.
@@ -43,11 +59,6 @@ export const usePresets = (defaultPresets: Presets) => {
     setPresets(updatedPresets);
     setSelectedPreset(name);
     setNewPresetName('');
-    try {
-      localStorage.setItem(PRESETS_STORAGE_KEY, JSON.stringify(updatedPresets));
-    } catch (error) {
-      console.error("Failed to save presets to localStorage:", error);
-    }
   }, [presets]);
 
   /**
@@ -76,11 +87,6 @@ export const usePresets = (defaultPresets: Presets) => {
     const { [selectedPreset]: _, ...remainingPresets } = presets;
     setPresets(remainingPresets);
     setSelectedPreset('');
-    try {
-      localStorage.setItem(PRESETS_STORAGE_KEY, JSON.stringify(remainingPresets));
-    } catch (error) {
-      console.error("Failed to delete preset from localStorage:", error);
-    }
   }, [presets, selectedPreset]);
 
   return {

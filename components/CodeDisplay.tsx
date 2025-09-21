@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { CodeIcon, CopyIcon, CheckIcon, DownloadIcon, LockIcon } from './icons';
+import { CodeIcon, CopyIcon, CheckIcon, DownloadIcon, LockIcon, XIcon } from './icons';
 
 interface CodeDisplayProps {
   code: string;
   isEnabled: boolean;
+  onClose?: () => void;
+  isModal: boolean;
 }
 
-const CodeDisplay: React.FC<CodeDisplayProps> = ({ code, isEnabled }) => {
+const CodeDisplay: React.FC<CodeDisplayProps> = ({ code, isEnabled, onClose, isModal }) => {
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -36,32 +38,43 @@ const CodeDisplay: React.FC<CodeDisplayProps> = ({ code, isEnabled }) => {
   };
   
   return (
-    <div className="bg-brand-secondary border border-brand-border rounded-lg flex flex-col relative">
-      <div className="flex justify-between items-center p-4 border-b border-brand-border">
+    <div className={`bg-brand-secondary border border-brand-border rounded-lg flex flex-col relative ${isModal ? 'max-h-[90vh]' : 'h-full max-h-[1600px] sticky top-8'}`}>
+      <div className="flex justify-between items-center p-4 border-b border-brand-border flex-shrink-0">
         <h2 className="text-xl font-semibold flex items-center gap-3">
           <CodeIcon className="w-6 h-6 text-brand-accent"/>
           Generated MQL5 Code
         </h2>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
+            <button 
+                onClick={handleDownload} 
+                className="flex items-center gap-2 px-3 py-2 rounded-md bg-brand-accent hover:bg-blue-500 text-white font-semibold text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-brand-secondary focus:ring-brand-accent disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={!isEnabled}
+                aria-label="Download .mq5 file"
+            >
+              <DownloadIcon className="w-5 h-5" />
+              <span className="hidden sm:inline">Download</span>
+            </button>
             <button 
                 onClick={handleCopy} 
                 className="p-2 rounded-md bg-brand-primary hover:bg-brand-border transition-colors text-brand-muted hover:text-white focus:outline-none focus:ring-2 focus:ring-brand-accent disabled:opacity-50 disabled:cursor-not-allowed"
                 disabled={!isEnabled}
                 aria-label="Copy code"
+                title="Copy code"
             >
-            {copied ? <CheckIcon className="w-5 h-5 text-green-400" /> : <CopyIcon className="w-5 h-5" />}
+            {copied ? <CheckIcon className="w-5 h-5 text-brand-buy" /> : <CopyIcon className="w-5 h-5" />}
             </button>
-            <button 
-                onClick={handleDownload} 
-                className="p-2 rounded-md bg-brand-primary hover:bg-brand-border transition-colors text-brand-muted hover:text-white focus:outline-none focus:ring-2 focus:ring-brand-accent disabled:opacity-50 disabled:cursor-not-allowed"
-                disabled={!isEnabled}
-                aria-label="Download code"
-            >
-            <DownloadIcon className="w-5 h-5" />
-            </button>
+            {isModal && onClose && (
+                 <button 
+                    onClick={onClose} 
+                    className="p-2 rounded-full hover:bg-brand-border transition-colors ml-2"
+                    aria-label="Close code view"
+                >
+                    <XIcon className="w-5 h-5 text-brand-muted" />
+                </button>
+            )}
         </div>
       </div>
-      <div className="p-4 overflow-auto flex-grow h-96 lg:h-auto relative">
+      <div className="p-4 overflow-auto flex-grow relative">
         <pre className={`text-sm font-mono whitespace-pre-wrap ${!isEnabled ? 'blur-sm' : ''}`}>
           <code>{code}</code>
         </pre>
