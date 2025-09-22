@@ -1,76 +1,35 @@
-
-// FIX: Use explicit file extension for imports
-import type { CandlestickData, TickerData } from '../types.ts';
-import type { Time } from 'lightweight-charts';
-
-// Switched to CryptoCompare Public API for better CORS compatibility in sandboxed environments.
-const API_BASE = 'https://min-api.cryptocompare.com/data';
-const SYMBOL = 'BTC';
-const CURRENCY = 'USD';
-const BARS_TO_FETCH = 200;
+import type { CandlestickData, TickerData } from './types.ts';
+import { generateMockCandlestickData, generateMockTickerData } from './mockData.ts';
 
 /**
- * Fetches the last 200 hours of BTC/USD H1 OHLC data from CryptoCompare.
+ * Fetches the last 200 hours of BTC/USD H1 OHLC data using a mock generator.
+ * This avoids external API calls that can fail due to CORS or network issues.
+ * @returns A promise that resolves to an array of CandlestickData.
  */
 export const fetchBTCUSD_H1_Data = async (): Promise<CandlestickData[]> => {
-    // histohour endpoint returns up to 2000 records, so 200 is safe.
-    const apiUrl = `${API_BASE}/v2/histohour?fsym=${SYMBOL}&tsym=${CURRENCY}&limit=${BARS_TO_FETCH}`;
-
     try {
-        const response = await fetch(apiUrl);
-        if (!response.ok) {
-            throw new Error(`Failed to fetch data: ${response.status} ${response.statusText}`);
-        }
-        const data = await response.json();
-
-        if (data.Response !== 'Success' || !data.Data || !Array.isArray(data.Data.Data)) {
-            throw new Error(data.Message || "Invalid data format received from API");
-        }
-
-        // Format the data for lightweight-charts
-        // CryptoCompare response format: { Data: { Data: [{ time, open, high, low, close, ... }] } }
-        const formattedData: CandlestickData[] = data.Data.Data.map((d: any) => ({
-            time: d.time as Time, // Already in seconds
-            open: d.open,
-            high: d.high,
-            low: d.low,
-            close: d.close,
-        }));
-
-        return formattedData;
-
+        // Simulate a network delay for a more realistic loading experience.
+        await new Promise(resolve => setTimeout(resolve, 150));
+        const mockData = generateMockCandlestickData();
+        return mockData;
     } catch (error) {
-        console.error("Error fetching crypto data:", error);
-        throw error; // Re-throw the error to be handled by the calling component
+        console.error("Error generating mock crypto data:", error);
+        throw error;
     }
 };
 
 /**
- * Fetches the latest BTC/USD price summary for the ticker from CryptoCompare.
+ * Fetches the latest BTC/USD price summary from the mock ticker generator.
+ * @returns A promise that resolves to a TickerData object.
  */
 export const fetchBTCUSD_TickerData = async (): Promise<TickerData> => {
-    const apiUrl = `${API_BASE}/pricemultifull?fsyms=${SYMBOL}&tsyms=${CURRENCY}`;
-
     try {
-        const response = await fetch(apiUrl);
-         if (!response.ok) {
-            throw new Error(`Failed to fetch ticker data: ${response.status} ${response.statusText}`);
-        }
-        const data = await response.json();
-
-        const ticker = data?.RAW?.[SYMBOL]?.[CURRENCY];
-        if (!ticker || typeof ticker.PRICE === 'undefined') {
-            throw new Error("Invalid ticker data format received from CryptoCompare API");
-        }
-        
-        return {
-            price: ticker.PRICE,
-            changeAbsolute: ticker.CHANGE24HOUR,
-            changePercentage: ticker.CHANGEPCT24HOUR / 100, // Convert percentage to a decimal
-        };
-
+        // The mock generator is synchronous, but we keep the async signature
+        // to maintain consistency with a real API implementation.
+        const mockTicker = generateMockTickerData();
+        return Promise.resolve(mockTicker);
     } catch (error) {
-        console.error("Error fetching crypto ticker data:", error);
+        console.error("Error generating mock crypto ticker data:", error);
         throw error;
     }
 }
@@ -115,12 +74,13 @@ class PriceStreamService {
 
     private fetchData = async () => {
         try {
+            // Now fetching from our reliable mock data source
             const data = await fetchBTCUSD_TickerData();
             this.lastData = data;
             this.notifySubscribers(data, null);
         } catch (error) {
-            console.error("PriceStreamService: Error fetching ticker data.", error);
-            // We notify subscribers of the error, they can decide how to handle it (e.g., show a message but keep stale data)
+            console.error("PriceStreamService: Error fetching mock ticker data.", error);
+            // Notify subscribers of the error. This is unlikely with mock data but good practice.
             this.notifySubscribers(null, error as Error);
         }
     }

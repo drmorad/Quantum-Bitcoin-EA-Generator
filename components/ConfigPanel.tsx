@@ -74,13 +74,16 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
       </h2>
 
       {errors.general && (
-        <div className="mb-6 p-4 border border-yellow-500/30 bg-yellow-500/10 rounded-lg text-yellow-300 text-sm space-y-2">
-          {errors.general.split('\n').map((line, index) => (
-            <div key={index} className="flex items-start gap-2">
-              <AlertTriangleIcon className="w-5 h-5 mt-0.5 flex-shrink-0" />
-              <span>{line.replace('Warning: ', '')}</span>
-            </div>
-          ))}
+        <div className="mb-6 p-4 border-l-4 border-yellow-400 bg-yellow-900/50 rounded-r-lg text-yellow-200 space-y-2" role="alert">
+          <div className="flex items-center gap-3">
+            <AlertTriangleIcon className="w-6 h-6 text-yellow-400 flex-shrink-0" />
+            <h4 className="font-bold text-lg text-yellow-300">Risk Warning</h4>
+          </div>
+          <div className="pl-9 text-sm">
+            {errors.general.split('\n').map((line, index) => (
+                <p key={index}>{line.replace('Warning: ', '')}</p>
+            ))}
+          </div>
         </div>
       )}
 

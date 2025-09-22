@@ -1,7 +1,5 @@
-
 import { GoogleGenAI, Type } from "@google/genai";
-// FIX: Use explicit file extension for imports
-import type { EAConfig, SimulatedResults, LiveAnalysisData, AIPersonality, FundamentalData, TradingSignal } from '../types.ts';
+import type { EAConfig, SimulatedResults, LiveAnalysisData, AIPersonality, FundamentalData, TradingSignal } from './types.ts';
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
@@ -12,8 +10,34 @@ const PERSONA_SYSTEM_INSTRUCTIONS: Record<AIPersonality, string> = {
     'Contrarian Investor': `You are a contrarian investor with a knack for identifying market extremes and potential reversals. You are inherently skeptical of trend-following systems and look for weaknesses or opportunities to fade the prevailing momentum. Your analysis will challenge the strategy's core assumptions and suggest parameters that might perform well during trend exhaustion or market reversals. Your tone is inquisitive, skeptical, and thought-provoking.`
 };
 
+const buildLiveDataMarkdown = (liveData: LiveAnalysisData): string => {
+    // This function now relies on the `periods` object within `liveData`
+    // to correctly label the indicators, removing duplicate logic.
+    const periods = liveData.periods ?? { ma: 50, maType: 'EMA', rsi: 14, atr: 14 }; // Default fallback
+
+    let table = `| Metric                | Value                               |\n`;
+    table +=    `|-----------------------|-------------------------------------|\n`;
+    table +=    `| Latest BTC Price      | $${liveData.latestPrice.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}                 |\n`;
+    table +=    `| Current Trend         | **${liveData.trend}**                       |\n`;
+    table +=    `| Trend MA(${periods.maType} ${periods.ma}) Value   | $${liveData.maValue.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}                 |\n`;
+    
+    if (liveData.rsiValue !== undefined) {
+        table += `| RSI(${periods.rsi}) Value     | ${liveData.rsiValue.toFixed(2)}                |\n`;
+    }
+    if (liveData.atrValue !== undefined) {
+        table += `| ATR(${periods.atr}) Value     | $${liveData.atrValue.toFixed(2)} (volatility) |\n`;
+    }
+    if (liveData.macd) {
+        table += `| MACD Hist. (12,26,9)  | ${liveData.macd.histogram.toFixed(2)}                |\n`;
+    }
+    if (liveData.stochastic) {
+        table += `| Stochastic %K, %D (14,3,3) | ${liveData.stochastic.k.toFixed(2)}, ${liveData.stochastic.d.toFixed(2)}        |\n`;
+    }
+    return table;
+};
+
 export const getPromptTemplate = (config: EAConfig, results: SimulatedResults, liveData: LiveAnalysisData): string => {
-  let prompt: string;
+  const liveDataMarkdown = buildLiveDataMarkdown(liveData);
 
   const commonHeader = `
 As the selected AI Persona, you must conduct a formal audit of the following MQL5 Expert Advisor configuration.
@@ -21,31 +45,40 @@ As the selected AI Persona, you must conduct a formal audit of the following MQL
 **Crucial Context:** The audit is for the **BTCUSD asset on the H1 (1-hour) timeframe**. This asset is known for high volatility and strong trends. Your analysis must be tailored to these specific conditions.
 
 **Simulated Performance Metrics:**
-- Profit Factor: ${results.profitFactor}
-- Max Drawdown: ${results.drawdown}
-- Win Rate: ${results.winRate}
-- Sharpe Ratio: ${results.sharpeRatio}
+| Metric         | Value              |
+|----------------|--------------------|
+| Profit Factor  | ${results.profitFactor}      |
+| Max Drawdown   | ${results.drawdown}       |
+| Win Rate       | ${results.winRate}        |
+| Sharpe Ratio   | ${results.sharpeRatio}     |
 
 **Live Market Snapshot:**
-- Latest BTC Price: $${liveData.latestPrice.toFixed(2)}
-- Current Trend Direction: **${liveData.trend}**
+${liveDataMarkdown}
 `;
 
+  let strategyConfigSection: string;
+  let auditSection: string;
+
   if (config.strategyType === 'grid') {
-    prompt = `
-${commonHeader}
-- Trend MA(${config.maPeriod}) Value: $${liveData.maValue.toFixed(2)}
-
+    strategyConfigSection = `
 **Grid Strategy Configuration:**
-- Initial Risk: ${config.initialRiskPercent}%
-- Grid Distance: ${config.gridDistance} points
-- Grid Distance Multiplier: ${config.gridDistanceMultiplier}
-- Grid Lot Multiplier (Martingale): ${config.gridMultiplier}
-- Max Grid Trades: ${config.maxGridTrades}
-- Trend MA Period: ${config.maPeriod} (${config.maType})
-- Take Profit (Base): $${config.takeProfit}
-- Stop Loss: ${config.stopLoss.toFixed(2)}% of Equity
-
+| Parameter                 | Value                               |
+|---------------------------|-------------------------------------|
+| Initial Risk              | ${config.initialRiskPercent}%        |
+| Grid Distance             | ${config.gridDistance} points       |
+| Grid Distance Multiplier  | ${config.gridDistanceMultiplier}   |
+| Grid Lot Multiplier       | ${config.gridMultiplier}           |
+| Max Grid Trades           | ${config.maxGridTrades}            |
+| Trend MA Period           | ${config.maPeriod}                  |
+| Trend MA Type             | ${config.maType}                    |
+| Take Profit (Base)        | $${config.takeProfit}                 |
+| Take Profit Multiplier    | ${config.takeProfitMultiplier}      |
+| Stop Loss (% Equity)      | ${config.stopLoss.toFixed(2)}%     |
+| Trailing Stop             | ${config.useTrailingStop ? 'Active' : 'Inactive'} |
+| Trailing Start            | ${config.useTrailingStop ? `${config.trailingStopStart} points` : 'N/A'} |
+| Trailing Distance         | ${config.useTrailingStop ? `${config.trailingStopDistance} points` : 'N/A'} |
+`;
+    auditSection = `
 **Your Audit (Provide in Markdown format with headers):**
 
 1.  **### Strategy Audit Score (out of 10)**
@@ -67,18 +100,24 @@ ${commonHeader}
     Based on the live market snapshot, provide a brief, actionable insight for a manual trader using a similar grid strategy. Should they be cautious, aggressive, or wait on the sidelines?
 `;
   } else { // 'signal' strategy
-    prompt = `
-${commonHeader}
-- Trend MA(${config.signal_maPeriod}) Value: $${liveData.maValue.toFixed(2)}
-- RSI(${config.signal_rsiPeriod}) Value: ${liveData.rsiValue?.toFixed(2) ?? 'N/A'}
-- ATR(${config.signal_atrPeriod}) Value: ${liveData.atrValue?.toFixed(2) ?? 'N/A'} (volatility measure)
-
+    strategyConfigSection = `
 **Signal Strategy Configuration:**
-- Lot Size: ${config.signal_lotSize}
-- Trend Filter: ${config.signal_maPeriod} Period ${config.signal_maType}
-- Entry Trigger: ${config.signal_rsiPeriod} Period RSI crossing ${config.signal_rsiOversold} (buy) / ${config.signal_rsiOverbought} (sell)
-- Risk Management: ATR(${config.signal_atrPeriod}) with SL Multiplier of ${config.signal_atrMultiplierSL} and TP Multiplier of ${config.signal_atrMultiplierTP}
-
+| Parameter                 | Value                               |
+|---------------------------|-------------------------------------|
+| Lot Size                  | ${config.signal_lotSize.toFixed(2)} |
+| Trend Filter MA Period    | ${config.signal_maPeriod}           |
+| Trend Filter MA Type      | ${config.signal_maType}             |
+| RSI Period                | ${config.signal_rsiPeriod}          |
+| RSI Oversold Level        | ${config.signal_rsiOversold}        |
+| RSI Overbought Level      | ${config.signal_rsiOverbought}      |
+| ATR Period (for Risk)     | ${config.signal_atrPeriod}          |
+| ATR SL Multiplier         | ${config.signal_atrMultiplierSL}   |
+| ATR TP Multiplier         | ${config.signal_atrMultiplierTP}   |
+| Trailing Stop             | ${config.signal_useTrailingStop ? 'Active' : 'Inactive'} |
+| Trailing Start            | ${config.signal_useTrailingStop ? `${config.signal_trailingStopStart} points` : 'N/A'} |
+| Trailing Distance         | ${config.signal_useTrailingStop ? `${config.signal_trailingStopDistance} points` : 'N/A'} |
+`;
+    auditSection = `
 **Your Audit (Provide in Markdown format with headers):**
 
 1.  **### Strategy Audit Score (out of 10)**
@@ -100,6 +139,14 @@ ${commonHeader}
     Based on the live market snapshot, is there an imminent trade signal according to the EA's logic? Should a manual trader take it, or is there a reason to be cautious?
 `;
   }
+  
+  const prompt = `
+${commonHeader}
+${strategyConfigSection}
+
+${auditSection}
+  `;
+  
   return prompt.trim();
 };
 

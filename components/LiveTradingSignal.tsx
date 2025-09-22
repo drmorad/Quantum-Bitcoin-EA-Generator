@@ -1,7 +1,6 @@
 
 import React, { useState, useCallback } from 'react';
 import { marked } from 'marked';
-// FIX: Use explicit file extension for imports
 import type { TradingSignal, CandlestickData, LiveAnalysisData } from '../types.ts';
 import { SignalIcon } from './icons.tsx';
 import { generateTradingSignal } from '../services/aiService.ts';

@@ -1,4 +1,3 @@
-
 // FIX: Use explicit file extension for imports
 import type { EAConfig } from '../types.ts';
 
@@ -584,47 +583,66 @@ bool IsNewBar()
 //+------------------------------------------------------------------+
 void CheckSignal()
   {
-   // Get indicator values from the most recently closed bar (index 1)
+   // --- 1. Get Indicator Values ---
+   // We read data from the most recently closed bar (index 1) to ensure the signal is stable and not repainting.
    double ma_buffer[1], atr_buffer[1], rsi_buffer[1], close_buffer[1];
    if(CopyBuffer(ma_handle, 0, 1, 1, ma_buffer) <= 0 ||
       CopyBuffer(atr_handle, 0, 1, 1, atr_buffer) <= 0 ||
       CopyBuffer(rsi_handle, 0, 1, 1, rsi_buffer) <= 0 ||
       CopyClose(_Symbol, PERIOD_H1, 1, 1, close_buffer) <= 0)
      {
-      Print("Error copying indicator buffers.");
+      Print("Error copying indicator buffers. Skipping signal check.");
       return;
      }
-     
+
    double ma_val = ma_buffer[0];
    double atr_val = atr_buffer[0];
    double rsi_val = rsi_buffer[0];
    double close_val = close_buffer[0];
-   
-   MqlTick tick;
-   SymbolInfoTick(_Symbol, tick);
 
-   // --- BUY SIGNAL LOGIC ---
-   // Condition 1: Price is in an uptrend (closed above the MA).
-   // Condition 2: RSI shows a pullback (is in the oversold area).
-   if(close_val > ma_val && rsi_val < InpRSIOversold)
+   // Safety check: ensure ATR is positive to avoid invalid SL/TP levels.
+   if(atr_val <= 0)
      {
-      // Calculate SL and TP based on ATR for volatility-based risk management
-      double stop_loss = tick.ask - (atr_val * InpATRMultiplierSL);
-      double take_profit = tick.ask + (atr_val * InpATRMultiplierTP);
-      trade.Buy(InpLotSize, _Symbol, tick.ask, stop_loss, take_profit, "Buy Signal");
+      Print("ATR value is zero or negative (", atr_val, "). Skipping signal check to prevent invalid SL/TP.");
       return;
      }
 
-   // --- SELL SIGNAL LOGIC ---
-   // Condition 1: Price is in a downtrend (closed below the MA).
-   // Condition 2: RSI shows a pullback (is in the overbought area).
-   if(close_val < ma_val && rsi_val > InpRSIOverbought)
+   // --- 2. Get Current Market Prices ---
+   MqlTick tick;
+   SymbolInfoTick(_Symbol, tick);
+
+   // --- 3. Evaluate Trading Signals ---
+   // This logic checks for two distinct scenarios: a buy signal or a sell signal.
+   // An 'else if' is used to ensure only one signal is acted upon per bar.
+
+   // --- BUY SIGNAL LOGIC ---
+   // Condition 1: Trend Filter - Price is in an uptrend (closed above the MA).
+   // Condition 2: Entry Trigger - RSI shows a pullback into the oversold area, indicating a potential buying opportunity.
+   if(close_val > ma_val && rsi_val < InpRSIOversold)
      {
-      // Calculate SL and TP based on ATR
+      // --- Calculate Volatility-Based SL/TP using ATR ---
+      // Stop Loss is placed below the entry price by a multiple of the ATR.
+      // Take Profit is placed above the entry price by a multiple of the ATR.
+      // This makes risk management dynamic and adaptive to market volatility.
+      double stop_loss = tick.ask - (atr_val * InpATRMultiplierSL);
+      double take_profit = tick.ask + (atr_val * InpATRMultiplierTP);
+
+      // Execute the buy trade using the configured fixed lot size.
+      trade.Buy(InpLotSize, _Symbol, tick.ask, stop_loss, take_profit, "Buy Signal (MA/RSI)");
+     }
+   // --- SELL SIGNAL LOGIC ---
+   // Condition 1: Trend Filter - Price is in a downtrend (closed below the MA).
+   // Condition 2: Entry Trigger - RSI shows a rally into the overbought area, indicating a potential selling opportunity.
+   else if(close_val < ma_val && rsi_val > InpRSIOverbought)
+     {
+      // --- Calculate Volatility-Based SL/TP using ATR ---
+      // Stop Loss is placed above the entry price by a multiple of the ATR.
+      // Take Profit is placed below the entry price by a multiple of the ATR.
       double stop_loss = tick.bid + (atr_val * InpATRMultiplierSL);
       double take_profit = tick.bid - (atr_val * InpATRMultiplierTP);
-      trade.Sell(InpLotSize, _Symbol, tick.bid, stop_loss, take_profit, "Sell Signal");
-      return;
+
+      // Execute the sell trade using the configured fixed lot size.
+      trade.Sell(InpLotSize, _Symbol, tick.bid, stop_loss, take_profit, "Sell Signal (MA/RSI)");
      }
   }
 

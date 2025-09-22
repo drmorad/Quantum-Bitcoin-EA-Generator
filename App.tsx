@@ -136,9 +136,11 @@ const validateConfig = (config: EAConfig): Partial<Record<keyof EAConfig | 'gene
     const relevantKeys = Object.keys(PARAM_RANGES) as (keyof typeof PARAM_RANGES)[];
 
     for (const key of relevantKeys) {
-        // FIX: Explicitly convert `key` to a string when using string methods to prevent TypeScript errors.
+        // Skip validation for parameters of the inactive strategy type
         if (config.strategyType === 'grid' && String(key).startsWith('signal_')) continue;
+        // For the 'signal' strategy, only validate common parameters and its own specific parameters
         if (config.strategyType === 'signal' && !String(key).startsWith('signal_') && !['magicNumber', 'maxSpread', 'initialDeposit'].includes(String(key))) continue;
+
 
         const value = config[key as keyof typeof PARAM_RANGES];
         const range = PARAM_RANGES[key as keyof typeof PARAM_RANGES];
@@ -167,7 +169,7 @@ const validateConfig = (config: EAConfig): Partial<Record<keyof EAConfig | 'gene
             newErrors.trailingStopDistance = "Trailing Distance must be less than Trailing Start.";
         }
         if (config.gridMultiplier >= 1.8 && config.maxGridTrades >= 6) {
-             generalWarnings += 'Warning: A high Lot Multiplier with many Grid Trades is extremely risky and can lead to rapid losses.\n';
+             generalWarnings += `Warning: The combination of a high Lot Multiplier (${config.gridMultiplier}) and a high number of Max Trades (${config.maxGridTrades}) is extremely risky. This can lead to rapid, significant losses if the market moves against your position.\n`;
         }
     } else if (config.strategyType === 'signal') {
         if (config.signal_useTrailingStop && config.signal_trailingStopStart <= config.signal_trailingStopDistance) {
@@ -179,7 +181,7 @@ const validateConfig = (config: EAConfig): Partial<Record<keyof EAConfig | 'gene
             newErrors.signal_rsiOversold = "Oversold level must be less than Overbought level.";
         }
         if (config.signal_atrMultiplierTP < config.signal_atrMultiplierSL) {
-            generalWarnings += 'Warning: The ATR Multiplier for TP is less than for SL, resulting in a poor risk/reward ratio (< 1:1).\n';
+            generalWarnings += `Warning: The ATR Multiplier for Take Profit (${config.signal_atrMultiplierTP}) is less than the multiplier for Stop Loss (${config.signal_atrMultiplierSL}). This creates an unfavorable risk/reward ratio, meaning potential losses are larger than potential gains on each trade.\n`;
         }
     }
     
@@ -280,8 +282,6 @@ const App: React.FC = () => {
   const [optimizationResults, setOptimizationResults] = useState<OptimizationResult[]>([]);
   const [isOptimizing, setIsOptimizing] = useState(false);
 
-  // FIX: Reworked hasHardErrors to use an explicit if-statement for type guarding.
-  // This ensures TypeScript correctly narrows the type of 'e' to a string before calling '.startsWith()'.
   const hasHardErrors = useMemo(() => Object.values(errors).some(e => {
     if (typeof e === 'string') {
         return e && !e.startsWith('Warning:');

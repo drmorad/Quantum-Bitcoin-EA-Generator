@@ -1,8 +1,5 @@
 
-// FIX: Use explicit file extension for imports
-import type { FundamentalData } from '../types.ts';
-
-const sentiments: FundamentalData['sentiment'][] = ['Bullish', 'Bearish', 'Neutral'];
+import type { FundamentalData } from './types.ts';
 
 const headlines: { sentiment: FundamentalData['sentiment']; text: string }[] = [
     { sentiment: 'Bullish', text: "Major financial institution announces plans to add Bitcoin to its balance sheet." },

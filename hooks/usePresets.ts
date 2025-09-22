@@ -65,9 +65,10 @@ export const usePresets = (defaultPresets: Presets) => {
 
   /**
    * Loads a preset configuration by name.
-   * @returns The loaded EAConfig or null if not found.
+   * @returns The loaded partial EAConfig or null if not found.
    */
-  const loadPreset = useCallback((name: string): EAConfig | null => {
+  // FIX: The return type is updated to Partial<EAConfig> to align with the Presets type, which stores partial configurations. This resolves the type mismatch error.
+  const loadPreset = useCallback((name: string): Partial<EAConfig> | null => {
     setSelectedPreset(name);
     if (presets[name]) {
       return presets[name];

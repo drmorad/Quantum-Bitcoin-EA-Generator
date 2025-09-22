@@ -1,6 +1,5 @@
-
 import React, { useEffect, useRef } from 'react';
-import { createChart, IChartApi, ISeriesApi, LineStyle, UTCTimestamp } from 'lightweight-charts';
+import { createChart, IChartApi, ISeriesApi, LineStyle, IPriceLine } from 'lightweight-charts';
 import type { EAConfig, CandlestickData } from '../types.ts';
 import { fetchBTCUSD_H1_Data } from '../services/cryptoDataService.ts';
 
@@ -10,49 +9,93 @@ interface InteractiveChartProps {
 
 const chartOptions = {
     layout: {
-        background: { color: '#131722' },
-        textColor: '#D9D9D9',
+        background: { color: '#161B22' }, // Synced with brand-secondary
+        textColor: '#8B949E', // Synced with brand-muted
     },
     grid: {
-        vertLines: { color: '#2A2E39' },
-        horzLines: { color: '#2A2E39' },
+        vertLines: { color: '#30363D' }, // Synced with brand-border
+        horzLines: { color: '#30363D' },
     },
     crosshair: {
         mode: 1, // Magnet
     },
     rightPriceScale: {
-        borderColor: '#485158',
+        borderColor: '#30363D',
     },
     timeScale: {
-        borderColor: '#485158',
+        borderColor: '#30363D',
     },
 };
+
+// Helper function to calculate EMA
+const calculateEMA = (data: CandlestickData[], period: number) => {
+    if (data.length < period) return [];
+    const emaData = [];
+    const k = 2 / (period + 1);
+    // Calculate initial SMA
+    let sum = 0;
+    for (let i = 0; i < period; i++) {
+        sum += data[i].close;
+    }
+    let ema = sum / period;
+    
+    emaData.push({ time: data[period - 1].time, value: ema });
+
+    for (let i = period; i < data.length; i++) {
+        ema = (data[i].close - ema) * k + ema;
+        emaData.push({ time: data[i].time, value: ema });
+    }
+    return emaData;
+};
+
+// Helper function to calculate SMA
+const calculateSMA = (data: CandlestickData[], period: number) => {
+    if (data.length < period) return [];
+    const smaData = [];
+    for (let i = period - 1; i < data.length; i++) {
+        const slice = data.slice(i - period + 1, i + 1);
+        const sum = slice.reduce((acc, val) => acc + val.close, 0);
+        smaData.push({
+            time: slice[slice.length - 1].time,
+            value: sum / period,
+        });
+    }
+    return smaData;
+};
+
 
 const InteractiveChart: React.FC<InteractiveChartProps> = ({ config }) => {
     const chartContainerRef = useRef<HTMLDivElement>(null);
     const chartRef = useRef<IChartApi | null>(null);
     const candlestickSeriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
     const maSeriesRef = useRef<ISeriesApi<'Line'> | null>(null);
+    const gridLinesRef = useRef<IPriceLine[]>([]);
 
+    // Chart Initialization Effect
     useEffect(() => {
         if (!chartContainerRef.current) return;
 
-        chartRef.current = createChart(chartContainerRef.current, chartOptions);
-        candlestickSeriesRef.current = chartRef.current.addCandlestickSeries({
-            upColor: '#26a69a',
-            downColor: '#ef5350',
+        const chart = createChart(chartContainerRef.current, chartOptions);
+        chartRef.current = chart;
+        
+        candlestickSeriesRef.current = chart.addCandlestickSeries({
+            upColor: '#26A69A',
+            downColor: '#EF5350',
             borderVisible: false,
-            wickUpColor: '#26a69a',
-            wickDownColor: '#ef5350',
+            wickUpColor: '#26A69A',
+            wickDownColor: '#EF5350',
         });
-        maSeriesRef.current = chartRef.current.addLineSeries({
-            color: '#2962FF',
+
+        maSeriesRef.current = chart.addLineSeries({
+            color: '#FBBF24', // Gold
             lineWidth: 2,
+            lastValueVisible: false,
+            priceLineVisible: false,
         });
 
         const handleResize = () => {
             if (chartRef.current && chartContainerRef.current) {
-                chartRef.current.applyOptions({ width: chartContainerRef.current.clientWidth });
+                chart.applyOptions({ width: chartContainerRef.current.clientWidth });
             }
         };
 
@@ -60,8 +103,10 @@ const InteractiveChart: React.FC<InteractiveChartProps> = ({ config }) => {
 
         fetchBTCUSD_H1_Data()
             .then(data => {
-                candlestickSeriesRef.current?.setData(data);
-                chartRef.current?.timeScale().fitContent();
+                if (candlestickSeriesRef.current && data.length > 0) {
+                    candlestickSeriesRef.current.setData(data);
+                    chartRef.current?.timeScale().fitContent();
+                }
             })
             .catch(error => console.error("Failed to fetch chart data:", error));
 
@@ -71,34 +116,72 @@ const InteractiveChart: React.FC<InteractiveChartProps> = ({ config }) => {
         };
     }, []);
 
+    // Config Update Effect (MA and Grid Lines)
     useEffect(() => {
-        if (!candlestickSeriesRef.current || !maSeriesRef.current) return;
+        const candlestickSeries = candlestickSeriesRef.current;
+        const maSeries = maSeriesRef.current;
+        if (!candlestickSeries || !maSeries) return;
 
+        // Clear previous grid lines
+        gridLinesRef.current.forEach(line => candlestickSeries.removePriceLine(line));
+        gridLinesRef.current = [];
+
+        const chartData = (candlestickSeries.data() as CandlestickData[]);
+        if (chartData.length === 0) return;
+
+        // --- 1. Update Moving Average ---
         const maPeriod = config.strategyType === 'grid' ? config.maPeriod : config.signal_maPeriod;
+        const maType = config.strategyType === 'grid' ? config.maType : config.signal_maType;
         
-        candlestickSeriesRef.current.applyOptions({}); // Force redraw to get data
-        const chartData = (candlestickSeriesRef.current.data() as CandlestickData[]);
-        
-        if (chartData.length < maPeriod) {
-            maSeriesRef.current.setData([]);
-            return;
+        if (chartData.length >= maPeriod) {
+            const maData = maType === 'EMA' 
+                ? calculateEMA(chartData, maPeriod) 
+                : calculateSMA(chartData, maPeriod);
+            maSeries.setData(maData);
+        } else {
+            maSeries.setData([]);
         }
 
-        const maData = chartData.slice(maPeriod - 1).map((_, index) => {
-            const startIndex = index;
-            const endIndex = startIndex + maPeriod;
-            const dataSlice = chartData.slice(startIndex, endIndex);
-            const sum = dataSlice.reduce((acc, val) => acc + val.close, 0);
-            return {
-                time: dataSlice[dataSlice.length - 1].time,
-                value: sum / maPeriod,
+        // --- 2. Update Grid Lines ---
+        if (config.strategyType === 'grid') {
+            const lastCandle = chartData[chartData.length - 1];
+            if (!lastCandle) return;
+            const startPrice = lastCandle.close;
+
+            const { gridDistance, gridDistanceMultiplier, maxGridTrades } = config;
+            const pointSize = 0.01;
+
+            const createGridLine = (price: number, color: string, title: string) => {
+                const line = candlestickSeries.createPriceLine({
+                    price,
+                    color,
+                    lineWidth: 1,
+                    lineStyle: LineStyle.Dashed,
+                    axisLabelVisible: true,
+                    title,
+                });
+                gridLinesRef.current.push(line);
             };
-        });
 
-        maSeriesRef.current.setData(maData);
+            // Buy grid (price drops)
+            let cumulativeBuyDistance = 0;
+            for (let i = 1; i <= maxGridTrades; i++) {
+                const stepDistance = gridDistance * (1 + (i - 1) * (gridDistanceMultiplier - 1.0));
+                cumulativeBuyDistance += stepDistance;
+                const priceLevel = startPrice - (cumulativeBuyDistance * pointSize);
+                createGridLine(priceLevel, '#26A69A', `Buy ${i}`);
+            }
 
-    }, [config.maPeriod, config.signal_maPeriod, config.strategyType]);
-
+            // Sell grid (price rises)
+            let cumulativeSellDistance = 0;
+            for (let i = 1; i <= maxGridTrades; i++) {
+                const stepDistance = gridDistance * (1 + (i - 1) * (gridDistanceMultiplier - 1.0));
+                cumulativeSellDistance += stepDistance;
+                const priceLevel = startPrice + (cumulativeSellDistance * pointSize);
+                createGridLine(priceLevel, '#EF5350', `Sell ${i}`);
+            }
+        }
+    }, [config]);
 
     return (
         <div className="bg-brand-secondary border border-brand-border rounded-lg p-4 flex flex-col h-[500px]">
