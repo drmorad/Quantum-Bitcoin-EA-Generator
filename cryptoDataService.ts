@@ -1,9 +1,9 @@
-import type { CandlestickData, TickerData } from '../types.ts';
+import type { CandlestickData, TickerData } from './types.ts';
 import { generateMockCandlestickData, generateMockTickerData } from './mockData.ts';
 
 /**
  * Fetches the last 200 hours of BTC/USD H1 OHLC data using a mock generator.
- * This avoids external API calls that can fail.
+ * This avoids external API calls that can fail due to CORS or network issues.
  * @returns A promise that resolves to an array of CandlestickData.
  */
 export const fetchBTCUSD_H1_Data = async (): Promise<CandlestickData[]> => {
@@ -55,9 +55,10 @@ class PriceStreamService {
     }
 
     private startPolling() {
-        if (this.intervalId) return;
+        if (this.intervalId) return; // Already polling
 
         console.log(`PriceStreamService: Starting polling every ${this.POLLING_INTERVAL}ms.`);
+        // Fetch immediately on start to provide data to the first subscriber without delay
         this.fetchData(); 
         
         this.intervalId = setInterval(this.fetchData, this.POLLING_INTERVAL);
@@ -73,11 +74,13 @@ class PriceStreamService {
 
     private fetchData = async () => {
         try {
+            // Now fetching from our reliable mock data source
             const data = await fetchBTCUSD_TickerData();
             this.lastData = data;
             this.notifySubscribers(data, null);
         } catch (error) {
             console.error("PriceStreamService: Error fetching mock ticker data.", error);
+            // Notify subscribers of the error. This is unlikely with mock data but good practice.
             this.notifySubscribers(null, error as Error);
         }
     }
@@ -88,9 +91,11 @@ class PriceStreamService {
 
     public subscribe(callback: Subscriber) {
         this.subscribers.add(callback);
+        // Immediately provide last known data if available, so new components don't have to wait for the next poll
         if (this.lastData) {
             callback(this.lastData, null); 
         }
+        // If this is the first subscriber, start the polling process
         if (!this.intervalId) {
             this.startPolling();
         }
@@ -98,6 +103,7 @@ class PriceStreamService {
 
     public unsubscribe(callback: Subscriber) {
         this.subscribers.delete(callback);
+        // If there are no more subscribers, stop polling to save resources
         if (this.subscribers.size === 0) {
             this.stopPolling();
         }

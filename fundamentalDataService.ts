@@ -1,5 +1,4 @@
-
-import type { FundamentalData } from '../types.ts';
+import type { FundamentalData } from './types.ts';
 
 const headlines: { sentiment: FundamentalData['sentiment']; text: string }[] = [
     { sentiment: 'Bullish', text: "Major financial institution announces plans to add Bitcoin to its balance sheet." },
@@ -23,6 +22,8 @@ const headlines: { sentiment: FundamentalData['sentiment']; text: string }[] = [
  * @returns A randomized FundamentalData object.
  */
 export const fetchFundamentalData = (): FundamentalData => {
+    // 60% chance to pull a headline that matches a specific sentiment, 40% chance for a purely random one.
+    // This makes the data feel a bit more cohesive.
     const sentimentBias = Math.random();
     let chosenSentiment: FundamentalData['sentiment'];
     
@@ -37,21 +38,4 @@ export const fetchFundamentalData = (): FundamentalData => {
         sentiment: chosenSentiment,
         headline: chosenHeadline.text,
     };
-};
-
-/**
- * Mocks fetching a list of recent market news headlines.
- * @returns A promise resolving to an array of 5 to 7 randomized FundamentalData objects.
- */
-export const fetchMarketNews = async (): Promise<FundamentalData[]> => {
-    await new Promise(resolve => setTimeout(resolve, 400)); // Simulate network delay
-
-    const newsCount = Math.floor(Math.random() * 3) + 5; // 5 to 7 news items
-    const shuffled = [...headlines].sort(() => 0.5 - Math.random());
-    const newsFeed = shuffled.slice(0, newsCount).map(item => ({
-        sentiment: item.sentiment,
-        headline: item.text,
-    }));
-    
-    return newsFeed;
 };

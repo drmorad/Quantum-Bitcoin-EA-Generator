@@ -1,3 +1,4 @@
+
 import type { Time } from 'lightweight-charts';
 
 export type StrategyType = 'grid' | 'signal';
@@ -72,6 +73,7 @@ export interface LiveAnalysisData {
     atrValue?: number;
     macd?: { macdLine: number; signalLine: number; histogram: number; };
     stochastic?: { k: number; d: number; };
+    rsiDivergence?: 'Bullish' | 'Bearish' | 'None';
     periods?: {
         ma: number;
         maType: MAType;

@@ -1,8 +1,5 @@
-
-
 import React from 'react';
-// FIX: Use explicit file extension for imports
-import type { SimulatedResults } from '../types.ts';
+import type { SimulatedResults } from './types.ts';
 import { CalculatorIcon, TrendingUpIcon, TrendingDownIcon, PercentIcon, TargetIcon } from './icons.tsx';
 
 interface BacktestResultsProps {
@@ -18,13 +15,13 @@ interface MetricCardProps {
 }
 
 const MetricCard: React.FC<MetricCardProps> = ({ Icon, label, value, iconBgClass, textColorClass }) => (
-    <div className="bg-brand-primary/50 border border-brand-border rounded-lg p-3 flex items-center gap-3 h-full">
-        <div className={`p-2 rounded-full ${iconBgClass}`}>
-            <Icon className="w-5 h-5 text-white" />
+    <div className="bg-brand-primary/50 border border-brand-border rounded-lg p-4 flex items-center gap-4 h-full">
+        <div className={`p-3 rounded-full ${iconBgClass}`}>
+            <Icon className="w-6 h-6 text-white" />
         </div>
         <div>
-            <p className="text-xs text-brand-muted">{label}</p>
-            <p className={`text-lg font-bold ${textColorClass}`}>{value}</p>
+            <p className="text-sm text-brand-muted">{label}</p>
+            <p className={`text-xl font-bold ${textColorClass}`}>{value}</p>
         </div>
     </div>
 );
@@ -32,13 +29,13 @@ const MetricCard: React.FC<MetricCardProps> = ({ Icon, label, value, iconBgClass
 
 const BacktestResults: React.FC<BacktestResultsProps> = ({ results }) => {
   return (
-    <div className="bg-brand-secondary border border-brand-border rounded-lg p-4 flex flex-col h-full">
-      <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
-        <CalculatorIcon className="w-5 h-5 text-brand-accent"/>
+    <div className="bg-brand-secondary border border-brand-border rounded-lg p-6 flex flex-col h-full">
+      <h2 className="text-2xl font-semibold mb-4 flex items-center gap-3">
+        <CalculatorIcon className="w-6 h-6 text-brand-accent"/>
         Simulated Results
       </h2>
 
-      <div className="grid grid-cols-1 gap-3 flex-grow">
+      <div className="grid grid-cols-1 gap-4 flex-grow">
         <MetricCard 
             Icon={TrendingUpIcon}
             label="Profit Factor"
@@ -68,7 +65,7 @@ const BacktestResults: React.FC<BacktestResultsProps> = ({ results }) => {
             textColorClass="text-brand-gold"
         />
       </div>
-      <p className="text-xs text-brand-muted text-center italic pt-3">
+      <p className="text-xs text-brand-muted text-center italic pt-4">
         Note: Illustrative metrics based on settings.
       </p>
     </div>

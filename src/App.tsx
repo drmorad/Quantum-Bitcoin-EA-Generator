@@ -1,20 +1,17 @@
-
-
-
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import type { EAConfig, Presets, SimulatedResults, OptimizationResult } from './types';
-import { generateMql5Code } from './services/mql5Generator';
-import ConfigPanel from './components/ConfigPanel';
-import CodeDisplay from './components/CodeDisplay';
-import InteractiveChart from './components/InteractiveChart';
-import BacktestResults from './components/BacktestResults';
-import ManualGridPlanner from './components/ManualGridPlanner';
-import AIAnalysis from './components/AIAnalysis';
-import PriceTicker from './components/PriceTicker';
-import ErrorBoundary from './components/ErrorBoundary';
-import OptimizationModal from './components/OptimizationModal';
-import { usePresets } from './hooks/usePresets';
-import { QuantumIcon, BookOpenIcon, XIcon } from './components/icons';
+import type { EAConfig, Presets, SimulatedResults, OptimizationResult } from '../types.ts';
+import { generateMql5Code } from '../services/mql5Generator.ts';
+import ConfigPanel from './components/ConfigPanel.tsx';
+import CodeDisplay from '../components/CodeDisplay.tsx';
+import InteractiveChart from '../components/InteractiveChart.tsx';
+import BacktestResults from '../components/BacktestResults.tsx';
+import ManualGridPlanner from '../components/ManualGridPlanner.tsx';
+import AIAnalysis from '../components/AIAnalysis.tsx';
+import PriceTicker from '../components/PriceTicker.tsx';
+import ErrorBoundary from './components/ErrorBoundary.tsx';
+import OptimizationModal from './components/OptimizationModal.tsx';
+import { usePresets } from '../hooks/usePresets.ts';
+import { QuantumIcon, BookOpenIcon, XIcon } from '../components/icons.tsx';
 
 interface ManualModalProps {
   onClose: () => void;
@@ -104,45 +101,22 @@ const ManualModal: React.FC<ManualModalProps> = ({ onClose }) => {
   );
 };
 
-const PARAM_RANGES: Omit<Record<keyof EAConfig, { min: number; max: number }>, 'maType' | 'useTrailingStop' | 'strategyType' | 'signal_maType' | 'startDate' | 'endDate'> = {
-    magicNumber: { min: 10000, max: 99999 },
-    initialLot: { min: 0.01, max: 1.0 },
-    maxSpread: { min: 1, max: 5000 },
-    initialDeposit: { min: 100, max: 1000000 },
-    gridDistance: { min: 100, max: 5000 },
-    gridDistanceMultiplier: { min: 1.0, max: 2.5 },
-    gridMultiplier: { min: 1.1, max: 2.5 },
-    maxGridTrades: { min: 2, max: 15 },
-    maPeriod: { min: 10, max: 200 },
-    takeProfit: { min: 10, max: 1000 },
-    takeProfitMultiplier: { min: 1.0, max: 2.0 },
-    stopLoss: { min: 0.5, max: 30.0 },
-    trailingStopStart: { min: 50, max: 5000 },
-    trailingStopDistance: { min: 50, max: 5000 },
-    signal_lotSize: { min: 0.01, max: 1.0 },
-    signal_maPeriod: { min: 10, max: 200 },
-    signal_atrPeriod: { min: 5, max: 50 },
-    signal_atrMultiplierSL: { min: 0.5, max: 5.0 },
-    signal_atrMultiplierTP: { min: 0.5, max: 10.0 },
-    signal_rsiPeriod: { min: 5, max: 50 },
-    signal_rsiOversold: { min: 10, max: 40 },
-    signal_rsiOverbought: { min: 60, max: 90 },
-};
-
 const validateConfig = (config: EAConfig): Partial<Record<keyof EAConfig | 'general', string>> => {
     const newErrors: Partial<Record<keyof EAConfig | 'general', string>> = {};
-    const relevantKeys = Object.keys(PARAM_RANGES) as (keyof typeof PARAM_RANGES)[];
 
-    for (const key of relevantKeys) {
-        // FIX: Explicitly convert `key` to a string when using string methods to prevent TypeScript errors.
-        if (config.strategyType === 'grid' && String(key).startsWith('signal_')) continue;
-        if (config.strategyType === 'signal' && !String(key).startsWith('signal_') && !['magicNumber', 'maxSpread', 'initialDeposit'].includes(String(key))) continue;
+    if(config.strategyType === 'grid' && config.useTrailingStop && (config.trailingStopStart ?? 0) <= (config.trailingStopDistance ?? 0)) {
+        newErrors.trailingStopStart = "Trailing Start must be greater than Trailing Distance.";
+        newErrors.trailingStopDistance = "Trailing Distance must be less than Trailing Start.";
+    }
 
-        const value = config[key];
-        const range = PARAM_RANGES[key];
-        if (value < range.min || value > range.max) {
-            newErrors[key] = `Value must be between ${range.min} and ${range.max}.`;
-        }
+    if(config.strategyType === 'signal' && config.signal_useTrailingStop && (config.signal_trailingStopStart ?? 0) <= (config.signal_trailingStopDistance ?? 0)) {
+        newErrors.signal_trailingStopStart = "Trailing Start must be greater than Trailing Distance.";
+        newErrors.signal_trailingStopDistance = "Trailing Distance must be less than Trailing Start.";
+    }
+    
+    if (config.strategyType === 'signal' && (config.signal_rsiOverbought ?? 90) <= (config.signal_rsiOversold ?? 10)) {
+        newErrors.signal_rsiOverbought = "Overbought level must be greater than Oversold level.";
+        newErrors.signal_rsiOversold = "Oversold level must be less than Overbought level.";
     }
 
     const start = new Date(config.startDate);
@@ -160,19 +134,11 @@ const validateConfig = (config: EAConfig): Partial<Record<keyof EAConfig | 'gene
     
     let generalWarnings = '';
     if (config.strategyType === 'grid') {
-        if (config.useTrailingStop && config.trailingStopStart <= config.trailingStopDistance) {
-            newErrors.trailingStopStart = "Trailing Start must be greater than Trailing Distance.";
-            newErrors.trailingStopDistance = "Trailing Distance must be less than Trailing Start.";
-        }
-        if (config.gridMultiplier >= 1.8 && config.maxGridTrades >= 6) {
+        if ((config.gridMultiplier ?? 0) >= 1.8 && (config.maxGridTrades ?? 0) >= 6) {
              generalWarnings += 'Warning: A high Lot Multiplier with many Grid Trades is extremely risky and can lead to rapid losses.\n';
         }
     } else if (config.strategyType === 'signal') {
-        if (config.signal_rsiOverbought <= config.signal_rsiOversold) {
-            newErrors.signal_rsiOverbought = "Overbought level must be greater than Oversold level.";
-            newErrors.signal_rsiOversold = "Oversold level must be less than Overbought level.";
-        }
-        if (config.signal_atrMultiplierTP < config.signal_atrMultiplierSL) {
+        if ((config.signal_atrMultiplierTP ?? 0) < (config.signal_atrMultiplierSL ?? 0)) {
             generalWarnings += 'Warning: The ATR Multiplier for TP is less than for SL, resulting in a poor risk/reward ratio (< 1:1).\n';
         }
     }
@@ -184,7 +150,11 @@ const validateConfig = (config: EAConfig): Partial<Record<keyof EAConfig | 'gene
 
 const calculateSimulatedResults = (config: EAConfig): SimulatedResults => {
     if (config.strategyType === 'signal') {
-        const { signal_atrMultiplierSL, signal_atrMultiplierTP, signal_maPeriod, signal_rsiPeriod } = config;
+        const signal_atrMultiplierSL = config.signal_atrMultiplierSL ?? 2;
+        const signal_atrMultiplierTP = config.signal_atrMultiplierTP ?? 3;
+        const signal_maPeriod = config.signal_maPeriod ?? 50;
+        const signal_rsiPeriod = config.signal_rsiPeriod ?? 14;
+
         const riskRewardRatio = signal_atrMultiplierSL > 0 ? signal_atrMultiplierTP / signal_atrMultiplierSL : 3;
         const profitFactor = Math.max(1.2, Math.min(3.0, riskRewardRatio * 1.1));
         const drawdown = Math.max(8, Math.min(30, (signal_atrMultiplierSL / 1.5) * 10));
@@ -198,11 +168,18 @@ const calculateSimulatedResults = (config: EAConfig): SimulatedResults => {
         };
     }
     
-    const { takeProfit, stopLoss, gridMultiplier, maPeriod, maxGridTrades } = config;
-    const stopLossUSD = (stopLoss / 100) * 10000;
+    const takeProfit = config.takeProfit ?? 200;
+    const stopLoss = config.stopLoss ?? 2.0;
+    const gridMultiplier = config.gridMultiplier ?? 1.5;
+    const maPeriod = config.maPeriod ?? 50;
+    const maxGridTrades = config.maxGridTrades ?? 3;
+    const initialRiskPercent = config.initialRiskPercent ?? 1.0;
+    const initialDeposit = config.initialDeposit ?? 10000;
+
+    const stopLossUSD = (stopLoss / 100) * initialDeposit;
     const riskRewardRatio = stopLossUSD > 0 ? takeProfit / stopLossUSD : 5;
-    const profitFactor = Math.max(1.1, Math.min(3.5, 1.0 + riskRewardRatio + (gridMultiplier - 1.2) * 2));
-    const drawdown = Math.max(5, Math.min(50, (maxGridTrades / 10) * (gridMultiplier / 1.5) * 20 + (stopLossUSD / 1000)));
+    const profitFactor = Math.max(1.1, Math.min(3.5, 1.0 + riskRewardRatio + (gridMultiplier - 1.2) * 2 + initialRiskPercent * 0.1));
+    const drawdown = Math.max(5, Math.min(50, (maxGridTrades / 10) * (gridMultiplier / 1.5) * 20 + stopLoss + initialRiskPercent * 2));
     const winRate = Math.max(30, Math.min(85, 80 - maPeriod / 5 - (maxGridTrades - 3) * 2));
     const sharpeRatio = Math.max(0.5, Math.min(3.0, profitFactor * (winRate / 100) * 1.5));
 
@@ -219,12 +196,12 @@ const endDate = today.toISOString().split('T')[0];
 
 const initialConfig: EAConfig = {
     magicNumber: 13579,
-    initialLot: 0.01,
     maxSpread: 50,
     startDate: '2023-01-01',
     endDate: endDate,
     initialDeposit: 10000,
     strategyType: 'grid',
+    initialRiskPercent: 1.0,
     gridDistance: 2000,
     gridDistanceMultiplier: 1.0,
     gridMultiplier: 1.5,
@@ -246,19 +223,17 @@ const initialConfig: EAConfig = {
     signal_rsiPeriod: 14,
     signal_rsiOversold: 30,
     signal_rsiOverbought: 70,
+    signal_useTrailingStop: false,
+    signal_trailingStopStart: 500,
+    signal_trailingStopDistance: 500,
 };
 
 const defaultPresets: Presets = {
-  "Balanced Trend Rider (Grid)": { ...initialConfig, strategyType: 'grid', magicNumber: 20202, gridDistance: 2500, gridDistanceMultiplier: 1.2, gridMultiplier: 1.5, maxGridTrades: 3, maType: 'SMA', maPeriod: 50, takeProfit: 250, stopLoss: 2.5, useTrailingStop: true, trailingStopStart: 1000, trailingStopDistance: 800 },
+  "Balanced Trend Rider (Grid)": { ...initialConfig, strategyType: 'grid', magicNumber: 20202, initialRiskPercent: 0.5, gridDistance: 2500, gridDistanceMultiplier: 1.2, gridMultiplier: 1.5, maxGridTrades: 3, maType: 'SMA', maPeriod: 50, takeProfit: 250, stopLoss: 2.5, useTrailingStop: true, trailingStopStart: 1000, trailingStopDistance: 800 },
   "MA/RSI Pullback (Signal)": { ...initialConfig, strategyType: 'signal', magicNumber: 60606, signal_lotSize: 0.02, signal_maType: 'EMA', signal_maPeriod: 50, signal_atrPeriod: 14, signal_atrMultiplierSL: 1.5, signal_atrMultiplierTP: 2.5, signal_rsiPeriod: 14, signal_rsiOversold: 35, signal_rsiOverbought: 65 },
-  "Scalper's Delight (Grid)": { ...initialConfig, strategyType: 'grid', magicNumber: 10101, initialLot: 0.02, gridDistance: 1000, gridDistanceMultiplier: 1.0, gridMultiplier: 1.8, maxGridTrades: 5, maType: 'EMA', maPeriod: 20, takeProfit: 100, stopLoss: 3.0, useTrailingStop: true, trailingStopStart: 400, trailingStopDistance: 300 },
-  "Volatility Harvester (Grid)": { ...initialConfig, strategyType: 'grid', magicNumber: 30303, gridDistance: 1500, gridDistanceMultiplier: 1.8, gridMultiplier: 1.6, maxGridTrades: 4, maType: 'EMA', maPeriod: 34, takeProfit: 300, stopLoss: 4.0, useTrailingStop: true, trailingStopStart: 1200, trailingStopDistance: 1000 },
-  "Low & Slow Accumulator (Grid)": { ...initialConfig, strategyType: 'grid', magicNumber: 40404, gridDistance: 4000, gridDistanceMultiplier: 1.1, gridMultiplier: 1.2, maxGridTrades: 8, maType: 'SMA', maPeriod: 100, takeProfit: 500, stopLoss: 5.0, useTrailingStop: false, trailingStopStart: 2000, trailingStopDistance: 1500 },
-  "Aggressive Momentum Grid": { ...initialConfig, strategyType: 'grid', magicNumber: 50505, initialLot: 0.03, gridDistance: 800, gridDistanceMultiplier: 1.2, gridMultiplier: 2.0, maxGridTrades: 6, maType: 'EMA', maPeriod: 15, takeProfit: 150, stopLoss: 2.0, useTrailingStop: true, trailingStopStart: 300, trailingStopDistance: 250 },
-  "Conservative Swing Grid": { ...initialConfig, strategyType: 'grid', magicNumber: 50506, initialLot: 0.01, gridDistance: 5000, gridDistanceMultiplier: 1.0, gridMultiplier: 1.3, maxGridTrades: 10, maType: 'SMA', maPeriod: 200, takeProfit: 1000, stopLoss: 8.0, useTrailingStop: false },
-  "Dynamic Volatility Grid": { ...initialConfig, strategyType: 'grid', magicNumber: 50507, initialLot: 0.01, gridDistance: 2200, gridDistanceMultiplier: 1.6, gridMultiplier: 1.4, maxGridTrades: 5, maType: 'EMA', maPeriod: 50, takeProfit: 450, takeProfitMultiplier: 1.5, stopLoss: 4.5, useTrailingStop: true, trailingStopStart: 1800, trailingStopDistance: 1500 },
+  "Scalper's Delight (Grid)": { ...initialConfig, strategyType: 'grid', magicNumber: 10101, initialRiskPercent: 1.5, gridDistance: 1000, gridDistanceMultiplier: 1.0, gridMultiplier: 1.8, maxGridTrades: 5, maType: 'EMA', maPeriod: 20, takeProfit: 100, stopLoss: 3.0, useTrailingStop: true, trailingStopStart: 400, trailingStopDistance: 300 },
+  "Low & Slow Accumulator (Grid)": { ...initialConfig, strategyType: 'grid', magicNumber: 40404, initialRiskPercent: 0.25, gridDistance: 4000, gridDistanceMultiplier: 1.1, gridMultiplier: 1.2, maxGridTrades: 8, maType: 'SMA', maPeriod: 100, takeProfit: 500, stopLoss: 5.0, useTrailingStop: false },
   "RSI Divergence Hunter (Signal)": { ...initialConfig, strategyType: 'signal', magicNumber: 70707, signal_lotSize: 0.01, signal_maType: 'SMA', signal_maPeriod: 100, signal_atrPeriod: 14, signal_atrMultiplierSL: 2.0, signal_atrMultiplierTP: 4.0, signal_rsiPeriod: 14, signal_rsiOversold: 25, signal_rsiOverbought: 75 },
-  "Fast EMA Trend Rider (Signal)": { ...initialConfig, strategyType: 'signal', magicNumber: 80808, signal_lotSize: 0.03, signal_maType: 'EMA', signal_maPeriod: 21, signal_atrPeriod: 10, signal_atrMultiplierSL: 1.2, signal_atrMultiplierTP: 2.0, signal_rsiPeriod: 9, signal_rsiOversold: 30, signal_rsiOverbought: 70 },
   "High R:R Breakout (Signal)": { ...initialConfig, strategyType: 'signal', magicNumber: 90909, signal_lotSize: 0.02, signal_maType: 'EMA', signal_maPeriod: 50, signal_atrPeriod: 20, signal_atrMultiplierSL: 2.5, signal_atrMultiplierTP: 5.0, signal_rsiPeriod: 14, signal_rsiOversold: 40, signal_rsiOverbought: 60 },
 };
 
@@ -271,14 +246,13 @@ const App: React.FC = () => {
   const [optimizationResults, setOptimizationResults] = useState<OptimizationResult[]>([]);
   const [isOptimizing, setIsOptimizing] = useState(false);
 
-  // FIX: Reworked hasHardErrors to use an explicit if-statement for type guarding.
-  // This ensures TypeScript correctly narrows the type of 'e' to a string before calling '.startsWith()'.
   const hasHardErrors = useMemo(() => Object.values(errors).some(e => {
     if (typeof e === 'string') {
         return e && !e.startsWith('Warning:');
     }
     return false;
   }), [errors]);
+  
   const presetManager = usePresets(defaultPresets);
   const simulatedResults = useMemo<SimulatedResults>(() => calculateSimulatedResults(config), [config]);
 
@@ -305,7 +279,18 @@ const App: React.FC = () => {
   const handleLoadPreset = (presetName: string) => {
     const loadedConfig = presetManager.loadPreset(presetName);
     if (loadedConfig) {
-      const newConfig = { ...initialConfig, ...loadedConfig };
+      const cleanedConfig: Partial<EAConfig> = {};
+      for (const key in loadedConfig) {
+        if (Object.prototype.hasOwnProperty.call(loadedConfig, key)) {
+          const value = loadedConfig[key as keyof EAConfig];
+          if (value !== null && value !== undefined) {
+            // @ts-ignore
+            cleanedConfig[key as keyof EAConfig] = value;
+          }
+        }
+      }
+
+      const newConfig = { ...initialConfig, ...cleanedConfig };
       setErrors(validateConfig(newConfig));
       setConfig(newConfig);
     }
@@ -322,14 +307,11 @@ const App: React.FC = () => {
 
   const handleRunOptimization = (parameter: keyof EAConfig, start: number, end: number, step: number) => {
     setIsOptimizing(true);
-    setOptimizationResults([]); // Clear old results immediately
+    setOptimizationResults([]);
 
-    // Use a timeout to allow the UI to update to the loading state before starting the calculations.
-    // The calculations are run in a non-blocking sequence to show results incrementally.
     setTimeout(() => {
         const results: OptimizationResult[] = [];
         const runLoop = (val: number) => {
-            // Use a small tolerance for floating point comparison
             if (val > end + (step / 2)) {
                 setIsOptimizing(false);
                 return;
@@ -340,7 +322,6 @@ const App: React.FC = () => {
             results.push({ value: val, results: simResults });
             setOptimizationResults([...results]);
 
-            // Schedule the next iteration, allowing the UI to render between steps
             setTimeout(() => runLoop(val + step), 25);
         };
         runLoop(start);
@@ -361,7 +342,7 @@ const App: React.FC = () => {
           <QuantumIcon className="w-12 h-12 text-brand-accent"/>
           <div>
             <h1 className="text-3xl sm:text-4xl font-bold text-white tracking-tight">MQL5 Quantum Bitcoin EA Generator</h1>
-            <p className="text-brand-muted text-center sm:text-left">Configure and generate your custom BTCUSD trading expert.</p>
+            <p className="text-brand-muted text-center sm:text-left">Configure and generate your custom BTC/USD trading expert.</p>
           </div>
           <button onClick={() => setIsManualOpen(true)} className="absolute top-0 right-0 flex items-center gap-2 px-3 py-2 rounded-md bg-brand-secondary border border-brand-border text-brand-muted hover:text-white hover:border-brand-accent transition-colors focus:outline-none focus:ring-2 focus:ring-brand-accent" aria-label="Open application manual">
             <BookOpenIcon className="w-5 h-5" />
@@ -393,7 +374,7 @@ const App: React.FC = () => {
             {config.strategyType === 'grid' && (<ErrorBoundary componentName="Manual Grid Planner"><ManualGridPlanner config={config} /></ErrorBoundary>)}
             <ErrorBoundary componentName="Interactive Chart"><InteractiveChart config={config} /></ErrorBoundary>
           </div>
-          <ErrorBoundary componentName="Code Display"><CodeDisplay code={generatedCode} isEnabled={!hasHardErrors} /></ErrorBoundary>
+          <ErrorBoundary componentName="Code Display"><CodeDisplay code={generatedCode} isEnabled={!hasHardErrors} isModal={false} /></ErrorBoundary>
         </main>
 
         <footer className="mt-12 text-center text-brand-muted text-sm">
@@ -410,7 +391,7 @@ const App: React.FC = () => {
           onClose={handleCloseOptimizer}
           parameterKey={optimizationState.parameter}
           parameterTitle={optimizationState.title}
-          currentValue={config[optimizationState.parameter] as number}
+          currentValue={(config[optimizationState.parameter] as number) ?? 0}
           onRun={handleRunOptimization}
           onApply={handleApplyOptimization}
           results={optimizationResults}

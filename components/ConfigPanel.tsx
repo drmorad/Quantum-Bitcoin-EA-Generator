@@ -1,6 +1,4 @@
-
 import React from 'react';
-// FIX: Use explicit file extension for imports
 import type { EAConfig, Presets } from '../types.ts';
 import InputSlider from './InputSlider.tsx';
 import { SettingsIcon, TrashIcon, GridIcon, SignalIcon, ShieldCheckIcon, AlertTriangleIcon, CalendarIcon } from './icons.tsx';
@@ -67,19 +65,19 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
   };
 
   return (
-    <div className="bg-brand-secondary border border-brand-border rounded-lg p-6 h-fit">
-      <h2 className="text-2xl font-semibold mb-6 flex items-center gap-3">
-        <SettingsIcon className="w-6 h-6 text-brand-accent"/>
+    <div className="bg-brand-secondary border border-brand-border rounded-lg p-4 h-fit">
+      <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+        <SettingsIcon className="w-5 h-5 text-brand-accent"/>
         EA Configuration
       </h2>
 
       {errors.general && (
-        <div className="mb-6 p-4 border-l-4 border-yellow-400 bg-yellow-900/50 rounded-r-lg text-yellow-200 space-y-2" role="alert">
-          <div className="flex items-center gap-3">
-            <AlertTriangleIcon className="w-6 h-6 text-yellow-400 flex-shrink-0" />
-            <h4 className="font-bold text-lg text-yellow-300">Risk Warning</h4>
+        <div className="mb-4 p-3 border-l-4 border-yellow-400 bg-yellow-900/50 rounded-r-lg text-yellow-200 space-y-1" role="alert">
+          <div className="flex items-center gap-2">
+            <AlertTriangleIcon className="w-5 h-5 text-yellow-400 flex-shrink-0" />
+            <h4 className="font-bold text-base text-yellow-300">Risk Warning</h4>
           </div>
-          <div className="pl-9 text-sm">
+          <div className="pl-7 text-xs">
             {errors.general.split('\n').map((line, index) => (
                 <p key={index}>{line.replace('Warning: ', '')}</p>
             ))}
@@ -87,7 +85,7 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 pb-6 border-b border-brand-border">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 pb-4 border-b border-brand-border">
         <div className="flex flex-col">
           <label htmlFor="preset-select" className="block text-sm font-medium text-brand-muted mb-1">Load Preset</label>
           <div className="flex gap-2">
@@ -95,7 +93,7 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
               id="preset-select"
               value={selectedPreset}
               onChange={(e) => onLoadPreset(e.target.value)}
-              className="w-full bg-brand-primary border border-brand-border rounded-md px-3 py-2 text-white focus:ring-2 focus:ring-brand-accent focus:border-brand-accent"
+              className="w-full bg-brand-primary border border-brand-border rounded-md px-3 py-2 text-brand-text focus:ring-2 focus:ring-brand-accent focus:border-brand-accent text-sm"
             >
               <option value="">-- Custom Configuration --</option>
               {Object.keys(presets).map(name => <option key={name} value={name}>{name}</option>)}
@@ -119,12 +117,12 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
                     value={newPresetName}
                     onChange={(e) => onNewPresetNameChange(e.target.value)}
                     placeholder="e.g., My Aggressive Setup"
-                    className="w-full bg-brand-primary border border-brand-border rounded-md px-3 py-2 text-white focus:ring-2 focus:ring-brand-accent focus:border-brand-accent"
+                    className="w-full bg-brand-primary border border-brand-border rounded-md px-3 py-2 text-brand-text focus:ring-2 focus:ring-brand-accent focus:border-brand-accent text-sm"
                 />
                 <button 
                     onClick={onSavePreset}
                     disabled={!newPresetName.trim()}
-                    className="px-4 py-2.5 bg-brand-accent hover:bg-blue-500 text-white font-semibold rounded-md disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    className="px-4 py-2 bg-brand-accent hover:bg-blue-500 text-white font-semibold rounded-md disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm"
                 >
                     Save
                 </button>
@@ -133,26 +131,26 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
       </div>
       
       <div className="space-y-6">
-        <h3 className="text-lg font-semibold text-brand-accent border-b border-brand-border pb-2">General Settings</h3>
+        <h3 className="text-base font-semibold text-brand-accent border-b border-brand-border pb-2">General Settings</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <InputSlider label="Magic Number" value={config.magicNumber} onChange={(v) => handleChange('magicNumber', v)} min={PARAM_RANGES.magicNumber.min} max={PARAM_RANGES.magicNumber.max} step={1} tooltip="A unique ID for the EA to manage its own trades." error={errors.magicNumber} />
             <InputSlider label="Max Spread (Points)" value={config.maxSpread} onChange={(v) => handleChange('maxSpread', v)} min={PARAM_RANGES.maxSpread.min} max={PARAM_RANGES.maxSpread.max} step={1} tooltip="The EA will not trade if the current spread is wider than this value." error={errors.maxSpread} />
         </div>
         
         <div className="pt-2">
-            <h3 className="text-lg font-semibold text-brand-accent border-b border-brand-border pb-2 flex items-center gap-2">
+            <h3 className="text-base font-semibold text-brand-accent border-b border-brand-border pb-2 flex items-center gap-2">
                 <CalendarIcon className="w-5 h-5"/>
                 Backtest Settings
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
                 <div>
                     <label htmlFor="start-date" className={`font-medium text-sm mb-1 block ${errors.startDate ? 'text-red-400' : 'text-brand-muted'}`}>Start Date</label>
-                    <input type="date" id="start-date" value={config.startDate} onChange={(e) => handleChange('startDate', e.target.value)} style={{ colorScheme: 'dark' }} className={`w-full bg-brand-primary border rounded-md px-3 py-2 text-white focus:ring-2 focus:border-brand-accent ${errors.startDate ? 'border-red-500/50 focus:ring-red-500' : 'border-brand-border focus:ring-brand-accent'}`} />
+                    <input type="date" id="start-date" value={config.startDate} onChange={(e) => handleChange('startDate', e.target.value)} style={{ colorScheme: 'dark' }} className={`w-full bg-brand-primary border rounded-md px-3 py-2 text-brand-text focus:ring-2 focus:border-brand-accent ${errors.startDate ? 'border-red-500/50 focus:ring-red-500' : 'border-brand-border focus:ring-brand-accent'}`} />
                     {errors.startDate && <p className="text-red-500 text-xs mt-1">{errors.startDate}</p>}
                 </div>
                 <div>
                     <label htmlFor="end-date" className={`font-medium text-sm mb-1 block ${errors.endDate ? 'text-red-400' : 'text-brand-muted'}`}>End Date</label>
-                    <input type="date" id="end-date" value={config.endDate} onChange={(e) => handleChange('endDate', e.target.value)} style={{ colorScheme: 'dark' }} className={`w-full bg-brand-primary border rounded-md px-3 py-2 text-white focus:ring-2 focus:border-brand-accent ${errors.endDate ? 'border-red-500/50 focus:ring-red-500' : 'border-brand-border focus:ring-brand-accent'}`} />
+                    <input type="date" id="end-date" value={config.endDate} onChange={(e) => handleChange('endDate', e.target.value)} style={{ colorScheme: 'dark' }} className={`w-full bg-brand-primary border rounded-md px-3 py-2 text-brand-text focus:ring-2 focus:border-brand-accent ${errors.endDate ? 'border-red-500/50 focus:ring-red-500' : 'border-brand-border focus:ring-brand-accent'}`} />
                     {errors.endDate && <p className="text-red-500 text-xs mt-1">{errors.endDate}</p>}
                 </div>
                 <div className="md:col-span-2">
@@ -162,7 +160,7 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
         </div>
 
         <div className="pt-2">
-            <h3 className="text-lg font-semibold text-brand-accent border-b border-brand-border pb-2">Strategy Type</h3>
+            <h3 className="text-base font-semibold text-brand-accent border-b border-brand-border pb-2">Strategy Type</h3>
             <div className="grid grid-cols-2 gap-2 p-1 bg-brand-primary rounded-lg border border-brand-border mt-4">
                 <button onClick={() => handleChange('strategyType', 'grid')} className={`flex items-center justify-center gap-2 px-4 py-2 rounded-md text-sm font-semibold transition-colors ${config.strategyType === 'grid' ? 'bg-brand-accent text-white' : 'text-brand-muted hover:bg-brand-secondary'}`}><GridIcon className="w-5 h-5"/> Grid Strategy</button>
                 <button onClick={() => handleChange('strategyType', 'signal')} className={`flex items-center justify-center gap-2 px-4 py-2 rounded-md text-sm font-semibold transition-colors ${config.strategyType === 'signal' ? 'bg-brand-accent text-white' : 'text-brand-muted hover:bg-brand-secondary'}`}><SignalIcon className="w-5 h-5"/> Signal Strategy</button>
@@ -171,7 +169,7 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
 
         {config.strategyType === 'grid' && (
             <>
-                <h3 className="text-lg font-semibold text-brand-accent border-b border-brand-border pb-2 flex items-center gap-2"><GridIcon className="w-5 h-5"/> Grid Behavior</h3>
+                <h3 className="text-base font-semibold text-brand-accent border-b border-brand-border pb-2 flex items-center gap-2"><GridIcon className="w-5 h-5"/> Grid Behavior</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <InputSlider label="Initial Risk (%)" value={config.initialRiskPercent} onChange={(v) => handleChange('initialRiskPercent', v)} min={PARAM_RANGES.initialRiskPercent.min} max={PARAM_RANGES.initialRiskPercent.max} step={0.05} tooltip="The percentage of account equity to determine the initial trade's lot size. E.g., 1% on a $10k account might open ~0.01 lots." error={errors.initialRiskPercent} isOptimizable={true} onOptimize={() => onOpenOptimizer('initialRiskPercent', 'Initial Risk (%)')} />
                     <InputSlider label="Trend MA Period" value={config.maPeriod} onChange={(v) => handleChange('maPeriod', v)} min={PARAM_RANGES.maPeriod.min} max={PARAM_RANGES.maPeriod.max} step={1} tooltip="The period for the Moving Average used to determine the trend." error={errors.maPeriod} isOptimizable={true} onOptimize={() => onOpenOptimizer('maPeriod', 'Trend MA Period')} />
@@ -188,14 +186,14 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
                     <InputSlider label="Max Grid Trades" value={config.maxGridTrades} onChange={(v) => handleChange('maxGridTrades', v)} min={PARAM_RANGES.maxGridTrades.min} max={PARAM_RANGES.maxGridTrades.max} step={1} tooltip="The maximum number of trades allowed in a single grid." error={errors.maxGridTrades} isOptimizable={true} onOptimize={() => onOpenOptimizer('maxGridTrades', 'Max Grid Trades')} />
                 </div>
                 
-                <h3 className="text-lg font-semibold text-brand-accent border-b border-brand-border pb-2 flex items-center gap-2"><ShieldCheckIcon className="w-5 h-5"/> Grid Risk Management</h3>
+                <h3 className="text-base font-semibold text-brand-accent border-b border-brand-border pb-2 flex items-center gap-2"><ShieldCheckIcon className="w-5 h-5"/> Grid Risk Management</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <InputSlider label="Take Profit (USD)" value={config.takeProfit} onChange={(v) => handleChange('takeProfit', v)} min={PARAM_RANGES.takeProfit.min} max={PARAM_RANGES.takeProfit.max} step={10} tooltip="The total profit in USD at which the entire grid will be closed." error={errors.takeProfit} isOptimizable={true} onOptimize={() => onOpenOptimizer('takeProfit', 'Take Profit (USD)')} />
                     <InputSlider label="Take Profit Multiplier" value={config.takeProfitMultiplier} onChange={(v) => handleChange('takeProfitMultiplier', v)} min={PARAM_RANGES.takeProfitMultiplier.min} max={PARAM_RANGES.takeProfitMultiplier.max} step={0.05} tooltip="Increases the TP target as more trades are opened. 1.0 means fixed TP." error={errors.takeProfitMultiplier} isOptimizable={true} onOptimize={() => onOpenOptimizer('takeProfitMultiplier', 'Take Profit Multiplier')} />
                     <InputSlider label="Stop Loss (% of Equity)" value={config.stopLoss} onChange={(v) => handleChange('stopLoss', v)} min={PARAM_RANGES.stopLoss.min} max={PARAM_RANGES.stopLoss.max} step={0.1} tooltip="The total loss as a percentage of account equity at which the grid will be closed." error={errors.stopLoss} isOptimizable={true} onOptimize={() => onOpenOptimizer('stopLoss', 'Stop Loss (% of Equity)')} />
                 </div>
                 
-                <h3 className="text-lg font-semibold text-brand-accent border-b border-brand-border pb-2 flex justify-between items-center">
+                <h3 className="text-base font-semibold text-brand-accent border-b border-brand-border pb-2 flex justify-between items-center">
                     <span>Trailing Stop</span>
                     <label htmlFor="trailing-stop-toggle" className="flex items-center cursor-pointer">
                         <div className="relative">
@@ -214,7 +212,7 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
 
         {config.strategyType === 'signal' && (
             <>
-                <h3 className="text-lg font-semibold text-brand-accent border-b border-brand-border pb-2 flex items-center gap-2"><SignalIcon className="w-5 h-5" /> Trade Entry Signal</h3>
+                <h3 className="text-base font-semibold text-brand-accent border-b border-brand-border pb-2 flex items-center gap-2"><SignalIcon className="w-5 h-5" /> Trade Entry Signal</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="flex flex-col">
                         <label className="font-medium text-sm text-brand-muted mb-2">Trend MA Type</label>
@@ -229,7 +227,7 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
                     <InputSlider label="RSI Overbought Level" value={config.signal_rsiOverbought} onChange={(v) => handleChange('signal_rsiOverbought', v)} min={PARAM_RANGES.signal_rsiOverbought.min} max={PARAM_RANGES.signal_rsiOverbought.max} step={1} tooltip="RSI level to trigger sell signals in a downtrend." error={errors.signal_rsiOverbought} isOptimizable={true} onOptimize={() => onOpenOptimizer('signal_rsiOverbought', 'RSI Overbought Level')} />
                 </div>
 
-                <h3 className="text-lg font-semibold text-brand-accent border-b border-brand-border pb-2 flex items-center gap-2"><ShieldCheckIcon className="w-5 h-5" /> Risk & Position Sizing</h3>
+                <h3 className="text-base font-semibold text-brand-accent border-b border-brand-border pb-2 flex items-center gap-2"><ShieldCheckIcon className="w-5 h-5" /> Risk & Position Sizing</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <InputSlider label="Lot Size" value={config.signal_lotSize} onChange={(v) => handleChange('signal_lotSize', v)} min={PARAM_RANGES.signal_lotSize.min} max={PARAM_RANGES.signal_lotSize.max} step={0.01} tooltip="The fixed lot size for each trade." error={errors.signal_lotSize} />
                     <InputSlider label="ATR Period" value={config.signal_atrPeriod} onChange={(v) => handleChange('signal_atrPeriod', v)} min={PARAM_RANGES.signal_atrPeriod.min} max={PARAM_RANGES.signal_atrPeriod.max} step={1} tooltip="The period for the ATR indicator, used for SL/TP placement." error={errors.signal_atrPeriod} />
@@ -237,7 +235,7 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
                     <InputSlider label="ATR Multiplier for TP" value={config.signal_atrMultiplierTP} onChange={(v) => handleChange('signal_atrMultiplierTP', v)} min={PARAM_RANGES.signal_atrMultiplierTP.min} max={PARAM_RANGES.signal_atrMultiplierTP.max} step={0.1} tooltip="Take Profit distance in multiples of the ATR value." error={errors.signal_atrMultiplierTP} isOptimizable={true} onOptimize={() => onOpenOptimizer('signal_atrMultiplierTP', 'ATR Multiplier for TP')} />
                 </div>
                 
-                <h3 className="text-lg font-semibold text-brand-accent border-b border-brand-border pb-2 flex justify-between items-center">
+                <h3 className="text-base font-semibold text-brand-accent border-b border-brand-border pb-2 flex justify-between items-center">
                     <span>Trailing Stop</span>
                     <label htmlFor="signal-trailing-stop-toggle" className="flex items-center cursor-pointer">
                         <div className="relative">

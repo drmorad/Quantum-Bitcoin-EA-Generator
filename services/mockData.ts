@@ -1,14 +1,12 @@
-import type { CandlestickData, TickerData } from './types.ts';
+
+import type { CandlestickData, TickerData } from '../types.ts';
 import type { Time } from 'lightweight-charts';
 
 // --- Ticker Simulation State ---
-// This object holds the state for our mock price ticker, allowing it
-// to generate realistic, continuous price movements.
+// Updated to reflect a more current price level for BTC/USD.
 const mockTickerState = {
-    // Start with a realistic, recent price for BTC/USD.
-    currentPrice: 68543.21, 
-    // The price at the start of the simulated 24-hour period.
-    openPrice24h: 68010.55, 
+    currentPrice: 114004.01, 
+    openPrice24h: 113582.55, 
 };
 
 /**
@@ -40,43 +38,58 @@ export const generateMockTickerData = (): TickerData => {
 
 
 /**
- * Generates a realistic-looking historical dataset of 200 candlestick bars.
- * This function creates a smooth, random walk for the price, ensuring the
- * chart data looks plausible for backtesting and visualization.
- * @returns An array of 200 CandlestickData objects.
+ * Generates a realistic-looking historical dataset of 200 candlestick bars,
+ * ending at the current hour. This ensures the chart data is always up-to-date.
+ * This function generates the data backwards from the present time to ensure
+ * the latest candle aligns with the live ticker price.
+ * @returns An array of 200 CandlestickData objects in chronological order.
  */
 export const generateMockCandlestickData = (): CandlestickData[] => {
     const data: CandlestickData[] = [];
-    const BARS_TO_FETCH = 200;
-    
-    // Set the starting timestamp to 200 hours ago from now.
-    let currentTime = Math.floor(Date.now() / 1000) - BARS_TO_FETCH * 3600; 
-    let currentPrice = 67000.00;
+    const BARS_TO_GENERATE = 200;
 
-    for (let i = 0; i < BARS_TO_FETCH; i++) {
-        const open = currentPrice;
+    const now = new Date();
+    // Round down to the beginning of the current hour for the latest bar's timestamp.
+    now.setMinutes(0, 0, 0);
+    let currentTimestamp = Math.floor(now.getTime() / 1000);
+
+    // Start generating backwards from the ticker's current price for consistency.
+    let price = mockTickerState.currentPrice;
+
+    for (let i = 0; i < BARS_TO_GENERATE; i++) {
+        const close = price; // The close of the current bar is based on the previous (more recent) bar's open.
         
-        // Generate a random movement for the bar. Volatility is scaled by the current price.
-        const movement = (Math.random() - 0.48) * (currentPrice * 0.005);
-        const close = open + movement;
+        // Generate a plausible open price for this bar.
+        const movement = (Math.random() - 0.49) * (close * 0.007);
+        const open = close - movement;
         
-        // Determine high and low based on a random spread around the open and close.
-        const high = Math.max(open, close) + Math.random() * (currentPrice * 0.001);
-        const low = Math.min(open, close) - Math.random() * (currentPrice * 0.001);
+        // Determine high/low around the open/close.
+        let high = Math.max(open, close) + Math.random() * (close * 0.002);
+        let low = Math.min(open, close) - Math.random() * (close * 0.002);
+        
+        // Enforce basic candle integrity.
+        high = Math.max(high, open, close);
+        low = Math.min(low, open, close);
 
-        data.push({
-            time: currentTime as Time,
-            open,
-            high,
-            low,
-            close,
-        });
+        // Final sanity checks before adding the candle to the dataset.
+        if (isFinite(open) && isFinite(high) && isFinite(low) && isFinite(close) && low > 0) {
+             data.push({
+                time: currentTimestamp as Time,
+                open,
+                high,
+                low,
+                close,
+            });
+        }
 
-        // The next bar's open is the current bar's close, creating a continuous price series.
-        currentPrice = close;
-        // Increment the time by one hour (3600 seconds) for the next bar.
-        currentTime += 3600;
+        // For the next iteration (the bar before this one), its close price will be our current open price,
+        // ensuring a continuous price series.
+        price = open;
+
+        // Move back one hour for the next bar.
+        currentTimestamp -= 3600;
     }
 
-    return data;
+    // The data was generated from newest to oldest, so reverse it to be chronological.
+    return data.reverse();
 };

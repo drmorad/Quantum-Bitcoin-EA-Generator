@@ -1,120 +1,12 @@
 
 import React, { useState, useCallback } from 'react';
 import { marked } from 'marked';
-import type { TradingSignal, CandlestickData, LiveAnalysisData } from '../types.ts';
+import type { TradingSignal } from '../types.ts';
 import { SignalIcon } from './icons.tsx';
 import { generateTradingSignal } from '../services/aiService.ts';
 import { fetchBTCUSD_H1_Data } from '../services/cryptoDataService.ts';
 import { fetchFundamentalData } from '../services/fundamentalDataService.ts';
-
-const calculateEMA = (data: number[], period: number): number[] => {
-    if (data.length < period) return [];
-    const k = 2 / (period + 1);
-    const emaArray: number[] = [];
-    let sma = data.slice(0, period).reduce((a, b) => a + b, 0) / period;
-    emaArray.push(sma);
-    for (let i = period; i < data.length; i++) {
-        const ema = (data[i] * k) + (emaArray[emaArray.length - 1] * (1 - k));
-        emaArray.push(ema);
-    }
-    return emaArray;
-};
-
-
-const calculateLiveIndicators = (data: CandlestickData[]): LiveAnalysisData => {
-    const latestPrice = data.length > 0 ? data[data.length - 1].close : 0;
-    const closePrices = data.map(d => d.close);
-    
-    let maValue = 0;
-    let rsiValue: number | undefined = undefined;
-    let atrValue: number | undefined = undefined;
-    let macd: LiveAnalysisData['macd'] | undefined = undefined;
-    let stochastic: LiveAnalysisData['stochastic'] | undefined = undefined;
-
-    const maPeriod = 50; // Use a standard 50 EMA for general analysis
-    const rsiPeriod = 14;
-    const atrPeriod = 14;
-
-    if (data.length >= maPeriod) {
-        const emaValues = calculateEMA(closePrices, maPeriod);
-        maValue = emaValues[emaValues.length -1];
-    }
-
-    if (data.length > rsiPeriod) {
-        const changes = data.slice(-rsiPeriod -1).map((c, i, arr) => i > 0 ? c.close - arr[i-1].close : 0).slice(1);
-        const gains = changes.map(c => c > 0 ? c : 0);
-        const losses = changes.map(c => c < 0 ? -c : 0);
-        
-        const avgGain = gains.reduce((a, b) => a + b, 0) / rsiPeriod;
-        const avgLoss = losses.reduce((a, b) => a + b, 0) / rsiPeriod;
-        
-        if (avgLoss > 0) {
-            const rs = avgGain / avgLoss;
-            rsiValue = 100 - (100 / (1 + rs));
-        } else {
-            rsiValue = 100;
-        }
-    }
-
-    if (data.length > atrPeriod) {
-        const trueRanges = [];
-        for (let i = data.length - atrPeriod; i < data.length; i++) {
-            const high = data[i].high;
-            const low = data[i].low;
-            const prevClose = data[i-1].close;
-            const tr = Math.max(high - low, Math.abs(high - prevClose), Math.abs(low - prevClose));
-            trueRanges.push(tr);
-        }
-        atrValue = trueRanges.reduce((a, b) => a + b, 0) / atrPeriod;
-    }
-
-    // MACD Calculation (12, 26, 9)
-    const macdFastPeriod = 12;
-    const macdSlowPeriod = 26;
-    const macdSignalPeriod = 9;
-
-    if (closePrices.length >= macdSlowPeriod + macdSignalPeriod) {
-        const emaFast = calculateEMA(closePrices, macdFastPeriod);
-        const emaSlow = calculateEMA(closePrices, macdSlowPeriod);
-        const alignedEmaFast = emaFast.slice(emaFast.length - emaSlow.length);
-        const macdLineData = emaSlow.map((slow, i) => alignedEmaFast[i] - slow);
-        const signalLineData = calculateEMA(macdLineData, macdSignalPeriod);
-        
-        const macdLine = macdLineData[macdLineData.length - 1];
-        const signalLine = signalLineData[signalLineData.length - 1];
-        const histogram = macdLine - signalLine;
-
-        macd = { macdLine, signalLine, histogram };
-    }
-
-    // Stochastic Oscillator Calculation (14, 3, 3)
-    const stochPeriod = 14;
-    const stochDPeriod = 3;
-
-    if (data.length >= stochPeriod + stochDPeriod - 1) {
-        const kValues: number[] = [];
-        for (let i = stochPeriod - 1; i < data.length; i++) {
-            const periodSlice = data.slice(i - stochPeriod + 1, i + 1);
-            const lowestLow = Math.min(...periodSlice.map(d => d.low));
-            const highestHigh = Math.max(...periodSlice.map(d => d.high));
-            const currentClose = periodSlice[periodSlice.length - 1].close;
-            
-            const k = 100 * ((currentClose - lowestLow) / (highestHigh - lowestLow || 1));
-            kValues.push(isNaN(k) ? 0 : k);
-        }
-
-        if (kValues.length >= stochDPeriod) {
-            const dValuesSlice = kValues.slice(-stochDPeriod);
-            const dValue = dValuesSlice.reduce((a, b) => a + b, 0) / stochDPeriod; // Simple Moving Average for %D
-            const kValue = kValues[kValues.length - 1];
-            stochastic = { k: kValue, d: dValue };
-        }
-    }
-    
-    const trend = latestPrice > maValue ? 'Uptrend' : 'Downtrend';
-    
-    return { latestPrice, maValue, trend, rsiValue, atrValue, macd, stochastic };
-}
+import { calculateLiveIndicators } from '../services/technicalAnalysisService.ts';
 
 const SignalDisplay: React.FC<{ signal: TradingSignal }> = ({ signal }) => {
     const { signal: direction, confidence, entry, takeProfit, stopLoss, rationale } = signal;
@@ -131,7 +23,7 @@ const SignalDisplay: React.FC<{ signal: TradingSignal }> = ({ signal }) => {
         Low: 'text-brand-muted',
     };
     
-    const formattedRationale = marked.parse(rationale);
+    const formattedRationale = marked.parse(rationale || 'No rationale provided.');
 
     return (
         <div className="space-y-4">
@@ -154,15 +46,15 @@ const SignalDisplay: React.FC<{ signal: TradingSignal }> = ({ signal }) => {
                  <div className="grid grid-cols-3 gap-2 text-center text-sm">
                     <div className="bg-brand-primary p-2 rounded-lg">
                         <p className="text-xs text-brand-muted">Entry</p>
-                        <p className="font-mono font-semibold text-white">{entry.toFixed(2)}</p>
+                        <p className="font-mono font-semibold text-brand-text">{(entry || 0).toFixed(2)}</p>
                     </div>
                     <div className="bg-brand-primary p-2 rounded-lg">
                         <p className="text-xs text-brand-muted">Take Profit</p>
-                        <p className="font-mono font-semibold text-brand-buy">{takeProfit.toFixed(2)}</p>
+                        <p className="font-mono font-semibold text-brand-buy">{(takeProfit || 0).toFixed(2)}</p>
                     </div>
                     <div className="bg-brand-primary p-2 rounded-lg">
                         <p className="text-xs text-brand-muted">Stop Loss</p>
-                        <p className="font-mono font-semibold text-brand-sell">{stopLoss.toFixed(2)}</p>
+                        <p className="font-mono font-semibold text-brand-sell">{(stopLoss || 0).toFixed(2)}</p>
                     </div>
                 </div>
             )}
@@ -170,7 +62,7 @@ const SignalDisplay: React.FC<{ signal: TradingSignal }> = ({ signal }) => {
             <div>
                  <h4 className="font-semibold text-brand-accent mb-2">Rationale</h4>
                  <div
-                    className="prose prose-sm prose-invert max-w-none text-brand-muted space-y-2"
+                    className="prose prose-sm dark:prose-invert max-w-none text-brand-muted space-y-2"
                     dangerouslySetInnerHTML={{ __html: formattedRationale as string }}
                  />
             </div>
@@ -190,10 +82,11 @@ const LiveTradingSignal: React.FC = () => {
     setError('');
     try {
       const marketData = await fetchBTCUSD_H1_Data();
-      if (!marketData || marketData.length < 51) { // Need 50 for MA + 1 for prev close
+      if (!marketData || marketData.length < 51) {
           throw new Error("Could not fetch sufficient market data for analysis.");
       }
-      const liveData = calculateLiveIndicators(marketData);
+      // Use the new centralized service; no config is passed, so it uses default indicator settings.
+      const liveData = calculateLiveIndicators(marketData); 
       const fundamentalData = fetchFundamentalData();
 
       const response = await generateTradingSignal(liveData, fundamentalData);
@@ -207,7 +100,7 @@ const LiveTradingSignal: React.FC = () => {
   }, []);
 
   return (
-    <div className="bg-brand-secondary border border-brand-border rounded-lg p-6 flex flex-col h-full min-h-[350px]">
+    <div className="bg-brand-secondary border border-brand-border rounded-lg p-6 flex flex-col h-full min-h-[400px]">
       <h2 className="text-2xl font-semibold mb-4 flex items-center gap-3">
         <SignalIcon className="w-6 h-6 text-brand-accent"/>
         Live Trading Signal

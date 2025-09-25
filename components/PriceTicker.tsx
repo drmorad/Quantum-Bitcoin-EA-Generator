@@ -1,39 +1,33 @@
-
 import React, { useState, useEffect, useRef } from 'react';
-// FIX: Use explicit file extension for imports
 import type { TickerData } from '../types.ts';
 import { priceStreamService } from '../services/cryptoDataService.ts';
-import { ArrowUpIcon, ArrowDownIcon } from './icons.tsx';
+import { TrendingUpIcon } from './icons.tsx';
+
+const StaticTickerRow: React.FC<{ symbol: string; bid: string; ask: string; }> = ({ symbol, bid, ask }) => (
+    <tr className="border-t border-brand-border">
+        <td className="p-1 text-left font-medium text-brand-text">{symbol}</td>
+        <td className="p-1 text-right font-mono text-brand-muted">{bid}</td>
+        <td className="p-1 text-right font-mono text-brand-muted">{ask}</td>
+    </tr>
+);
+
 
 const PriceTicker: React.FC = () => {
     const [data, setData] = useState<TickerData | null>(null);
     const [error, setError] = useState<string | null>(null);
-    const [priceFlash, setPriceFlash] = useState('');
     const prevPriceRef = useRef<number | null>(null);
 
     useEffect(() => {
         const handleUpdate = (tickerData: TickerData | null, err: Error | null) => {
             if (err) {
-                // Only set error if we don't have any data to display yet
                 setData(currentData => {
-                    if (!currentData) {
-                        setError("Price feed unavailable");
-                    }
-                    return currentData; // Don't clear data on intermittent errors
+                    if (!currentData) setError("Price feed unavailable");
+                    return currentData;
                 });
             } else if (tickerData) {
-                if (prevPriceRef.current !== null) {
-                    if (tickerData.price > prevPriceRef.current) {
-                        setPriceFlash('bg-brand-buy/30');
-                    } else if (tickerData.price < prevPriceRef.current) {
-                        setPriceFlash('bg-brand-sell/30');
-                    }
-                }
                 prevPriceRef.current = tickerData.price;
                 setData(tickerData);
-                setError(null); // Clear error on successful update
-
-                setTimeout(() => setPriceFlash(''), 250);
+                setError(null);
             }
         };
         
@@ -44,47 +38,39 @@ const PriceTicker: React.FC = () => {
         };
     }, []);
 
-    const TickerSkeleton = () => (
-        <div className="w-full bg-brand-secondary border border-brand-border rounded-lg p-3 my-4 animate-pulse">
-             <div className="flex justify-between items-center text-sm">
-                <div className="h-4 bg-brand-border rounded w-24"></div>
-                <div className="h-6 bg-brand-border rounded w-32"></div>
-                <div className="h-4 bg-brand-border rounded w-40"></div>
-            </div>
-        </div>
-    );
+    const bid = data ? (data.price - 2.5).toFixed(2) : '...';
+    const ask = data ? (data.price + 2.5).toFixed(2) : '...';
     
-    if (error && !data) {
-        return (
-            <div className="w-full bg-red-900/50 border border-red-700 rounded-lg p-3 my-4 text-center text-red-300 text-sm">
-                {error}
-            </div>
-        );
-    }
-    
-    if (!data) {
-        return <TickerSkeleton />;
-    }
+    const bidColor = prevPriceRef.current && data && data.price < prevPriceRef.current ? 'text-brand-sell' : 'text-brand-text';
+    const askColor = prevPriceRef.current && data && data.price > prevPriceRef.current ? 'text-brand-buy' : 'text-brand-text';
 
-    const { price, changeAbsolute, changePercentage } = data;
-    const isUp = changeAbsolute >= 0;
-    const changeColor = isUp ? 'text-brand-buy' : 'text-brand-sell';
 
     return (
-        <div className="w-full bg-brand-secondary border border-brand-border rounded-lg p-3 my-4">
-            <div className="flex justify-between items-center text-sm sm:text-base">
-                <div className="font-bold text-white">
-                    <span className="text-brand-muted">BTC/USD</span>
-                </div>
-                <div className={`font-mono text-xl font-bold text-white px-2 rounded-md transition-colors duration-200 ${priceFlash}`}>
-                    {price.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}
-                </div>
-                <div className={`font-mono font-semibold flex items-center gap-2 ${changeColor}`}>
-                    {isUp ? <ArrowUpIcon className="w-4 h-4" /> : <ArrowDownIcon className="w-4 h-4" />}
-                    <span>{changeAbsolute.toFixed(2)}</span>
-                    <span>({isUp ? '+' : ''}{(changePercentage * 100).toFixed(2)}%)</span>
-                </div>
-            </div>
+        <div className="bg-brand-secondary border border-brand-border rounded-lg p-2">
+            <h2 className="text-lg font-semibold mb-2 flex items-center gap-2 p-1">
+                <TrendingUpIcon className="w-5 h-5 text-brand-accent"/>
+                Market Watch
+            </h2>
+            <table className="w-full text-sm">
+                <thead>
+                <tr className="border-b border-brand-border">
+                    <th className="p-1 text-left font-semibold text-brand-muted">Symbol</th>
+                    <th className="p-1 text-right font-semibold text-brand-muted">Bid</th>
+                    <th className="p-1 text-right font-semibold text-brand-muted">Ask</th>
+                </tr>
+                </thead>
+                <tbody>
+                    <tr className="border-t border-brand-border">
+                        <td className="p-1 text-left font-bold text-brand-accent">BTC/USDm</td>
+                        <td className={`p-1 text-right font-mono font-bold transition-colors duration-200 ${bidColor}`}>{error ? 'Error' : bid}</td>
+                        <td className={`p-1 text-right font-mono font-bold transition-colors duration-200 ${askColor}`}>{error ? 'Error' : ask}</td>
+                    </tr>
+                    <StaticTickerRow symbol="ETH/USDm" bid="3788.50" ask="3789.90" />
+                    <StaticTickerRow symbol="EUR/USDm" bid="1.0855" ask="1.0856" />
+                    <StaticTickerRow symbol="GBP/USDm" bid="1.2710" ask="1.2711" />
+                    <StaticTickerRow symbol="XAU/USDm" bid="2325.45" ask="2325.85" />
+                </tbody>
+            </table>
         </div>
     );
 };

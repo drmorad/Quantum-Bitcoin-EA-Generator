@@ -5,51 +5,105 @@
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>MQL5 Quantum Bitcoin EA Generator</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
     <script>
       tailwind.config = {
+        darkMode: 'class',
         theme: {
           extend: {
             colors: {
-              'brand-primary': '#0D1117',
-              'brand-secondary': '#161B22',
-              'brand-accent': '#F97316', // Vibrant Orange
-              'brand-gold': '#FBBF24', // Rich Gold/Amber
-              'brand-muted': '#8B949E',
-              'brand-border': '#30363D',
+              'brand-primary': 'var(--color-bg-primary)',
+              'brand-secondary': 'var(--color-bg-secondary)',
+              'brand-text': 'var(--color-text-primary)',
+              'brand-muted': 'var(--color-text-muted)',
+              'brand-border': 'var(--color-border)',
+              'brand-accent': 'var(--color-accent)',
+              'brand-gold': '#FBBF24',
               'brand-buy': '#26A69A',
               'brand-sell': '#EF5350',
             },
-            // Add prose styles for rendered markdown
             typography: ({ theme }) => ({
-              invert: {
+               DEFAULT: { // Base styles for prose (light mode)
                 css: {
-                  '--tw-prose-body': theme('colors.brand-muted'),
-                  '--tw-prose-headings': theme('colors.white'),
-                  '--tw-prose-lead': theme('colors.brand-muted'),
+                  '--tw-prose-body': 'var(--color-text-muted)',
+                  '--tw-prose-headings': 'var(--color-text-primary)',
+                  '--tw-prose-lead': 'var(--color-text-muted)',
                   '--tw-prose-links': theme('colors.brand-accent'),
-                  '--tw-prose-bold': theme('colors.white'),
-                  '--tw-prose-counters': theme('colors.brand-muted'),
-                  '--tw-prose-bullets': theme('colors.brand-border'),
-                  '--tw-prose-hr': theme('colors.brand-border'),
-                  '--tw-prose-quotes': theme('colors.brand-muted'),
-                  '--tw-prose-quote-borders': theme('colors.brand-border'),
-                  '--tw-prose-captions': theme('colors.brand-muted'),
-                  '--tw-prose-code': theme('colors.white'),
-                  '--tw-prose-pre-code': theme('colors.brand-muted'),
-                  '--tw-prose-pre-bg': theme('colors.brand-primary'),
-                  '--tw-prose-th-borders': theme('colors.brand-border'),
-                  '--tw-prose-td-borders': theme('colors.brand-border'),
+                  '--tw-prose-bold': 'var(--color-text-primary)',
+                  '--tw-prose-counters': 'var(--color-text-muted)',
+                  '--tw-prose-bullets': 'var(--color-border)',
+                  '--tw-prose-hr': 'var(--color-border)',
+                  '--tw-prose-quotes': 'var(--color-text-muted)',
+                  '--tw-prose-quote-borders': 'var(--color-border)',
+                  '--tw-prose-captions': 'var(--color-text-muted)',
+                  '--tw-prose-code': 'var(--color-text-primary)',
+                  '--tw-prose-pre-code': 'var(--color-text-muted)',
+                  '--tw-prose-pre-bg': 'var(--color-bg-secondary)',
+                  '--tw-prose-th-borders': 'var(--color-border)',
+                  '--tw-prose-td-borders': 'var(--color-border)',
+                },
+              },
+              invert: { // Styles for prose-invert (used in dark mode)
+                css: {
+                  '--tw-prose-body': 'var(--color-text-muted)',
+                  '--tw-prose-headings': 'var(--color-text-primary)',
+                  '--tw-prose-code': 'var(--color-text-primary)',
+                  '--tw-prose-pre-bg': 'var(--color-bg-primary)',
                 },
               },
             }),
           },
         },
-        plugins: [
-          require('@tailwindcss/typography'),
-        ],
       }
     </script>
+    <style>
+      :root {
+        /* Light Theme */
+        --color-bg-primary: #FFFFFF;
+        --color-bg-secondary: #F3F4F6;
+        --color-text-primary: #1F2937;
+        --color-text-muted: #6B7280;
+        --color-border: #E5E7EB;
+        --color-accent: #F59E0B; /* Amber */
+
+        /* MQL5 Light Theme (VSCode Light+) */
+        --mql5-comment: #008000;
+        --mql5-string: #A31515;
+        --mql5-preprocessor: #800080;
+        --mql5-keyword: #0000FF;
+        --mql5-type: #267F99;
+        --mql5-constant: #098658;
+        --mql5-function: #795E26;
+        --mql5-number: #098658;
+      }
+      html.dark {
+        /* Trading Terminal Dark Theme */
+        --color-bg-primary: #0B0C15;
+        --color-bg-secondary: #1C1D26;
+        --color-text-primary: #EAECEF;
+        --color-text-muted: #8B949E;
+        --color-border: #2A2D3A;
+        --color-accent: #FBBF24; /* Yellow */
+
+        /* MQL5 Dark Theme (VSCode Dark+) */
+        --mql5-comment: #6A9955;
+        --mql5-string: #CE9178;
+        --mql5-preprocessor: #C586C0;
+        --mql5-keyword: #569CD6;
+        --mql5-type: #4EC9B0;
+        --mql5-constant: #9CDCFE;
+        --mql5-function: #DCDCAA;
+        --mql5-number: #B5CEA8;
+      }
+      .mql5-comment { color: var(--mql5-comment); }
+      .mql5-string { color: var(--mql5-string); }
+      .mql5-preprocessor { color: var(--mql5-preprocessor); }
+      .mql5-keyword { color: var(--mql5-keyword); }
+      .mql5-type { color: var(--mql5-type); }
+      .mql5-constant { color: var(--mql5-constant); }
+      .mql5-function { color: var(--mql5-function); }
+      .mql5-number { color: var(--mql5-number); }
+    </style>
   <script type="importmap">
 {
   "imports": {
@@ -63,7 +117,7 @@
 }
 </script>
 </head>
-  <body class="bg-brand-primary text-white font-sans">
+  <body class="bg-brand-primary text-brand-text font-sans">
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
   </body>

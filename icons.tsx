@@ -215,66 +215,8 @@ export const BookOpenIcon: React.FC<IconProps> = (props) => (
     </svg>
 );
 
-export const RocketIcon: React.FC<IconProps> = (props) => (
-    <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.3.05-3.11.63-1.4 1.3-2.5 1.95-3.39L12 12 9.42 8.94c-.84.65-1.99 1.32-3.39 1.95-.81.65-2.27.66-3.11.05z"/>
-        <path d="m12 12 2.39-2.39c.53-.53 1.2-1.03 1.92-1.48.51-.32 1.01-.62 1.5-.9.3-.18.6-.34.9-.48.33-.16.66-.28 1-.37.33-.09.66-.14 1-.17.33-.03.66 0 1 0 .33 0 .66.03 1 .08.34.05.67.12 1 .22.33.1.66.22 1 .36.33.14.66.3.98.48.32.18.62.38.92.6.3.2.58.4.86.62.28.22.54.45.8.7.26.25.5.5.73.75.23.25.44.5.64.75.2.25.38.5.55.75.17.25.32.5.47.75.15.25.28.5.4.75.12.25.23.5.32.75.1.25.18.5.25.75.07.25.12.5.17.75.05.25.08.5.1.75.02.25.03.5.04.75.01.25.02.5.02.75s0 .5-.02.75a4.2 4.2 0 0 1-.1.75c-.05.25-.1.5-.17.75s-.15.5-.25.75c-.1.25-.22.5-.32.75s-.23.5-.38.75c-.15.25-.3.5-.47.75s-.35.5-.55.75c-.2.25-.4.5-.64.75s-.47.5-.73.75c-.26.25-.52.5-.8.7s-.58.4-.86.62c-.3.22-.6.42-.92.6s-.64.36-.98.48c-.32.14-.66.26-1 .36s-.67.17-1 .22c-.34.05-.67.08-1 .08s-.67-.03-1-.08c-.34-.05-.67-.13-1-.17s-.67-.19-1-.37c-.33-.14-.66-.3-1-.48s-.6-.32-.9-.48c-.49-.28-1-.58-1.5-.9-.72-.45-1.39-.95-1.92-1.48L12 12z"/>
-    </svg>
-);
-
 export const FullscreenIcon: React.FC<IconProps> = (props) => (
     <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
-    </svg>
-);
-
-export const SunIcon: React.FC<IconProps> = (props) => (
-  <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="12" cy="12" r="5"></circle>
-    <line x1="12" y1="1" x2="12" y2="3"></line>
-    <line x1="12" y1="21" x2="12" y2="23"></line>
-    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
-    <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
-    <line x1="1" y1="12" x2="3" y2="12"></line>
-    <line x1="21" y1="12" x2="23" y2="12"></line>
-    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
-    <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
-  </svg>
-);
-
-export const MoonIcon: React.FC<IconProps> = (props) => (
-  <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
-  </svg>
-);
-
-export const UsersIcon: React.FC<IconProps> = (props) => (
-    <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-        <circle cx="9" cy="7" r="4"></circle>
-        <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
-        <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
-    </svg>
-);
-
-export const NewspaperIcon: React.FC<IconProps> = (props) => (
-    <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h4"/>
-        <path d="M16 2v20"/>
-        <path d="M8 7h4"/>
-        <path d="M8 12h4"/>
-        <path d="M8 17h4"/>
-    </svg>
-);
-
-export const MinusIcon: React.FC<IconProps> = (props) => (
-  <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <line x1="5" y1="12" x2="19" y2="12"></line>
-  </svg>
-);
-
-export const GitHubIcon: React.FC<IconProps> = (props) => (
-    <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path>
     </svg>
 );

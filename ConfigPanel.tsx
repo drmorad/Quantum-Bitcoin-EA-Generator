@@ -1,5 +1,5 @@
 import React from 'react';
-import type { EAConfig, Presets } from '../../types.ts';
+import type { EAConfig, Presets } from './types.ts';
 import InputSlider from './InputSlider.tsx';
 import { SettingsIcon, TrashIcon, GridIcon, SignalIcon, ShieldCheckIcon, AlertTriangleIcon, CalendarIcon } from './icons.tsx';
 

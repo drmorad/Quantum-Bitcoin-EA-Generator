@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import type { EAConfig } from '../types.ts';
+import type { EAConfig } from './types.ts';
 import { GridIcon, DollarSignIcon, SendIcon } from './icons.tsx';
 
 interface ManualGridPlannerProps {
@@ -7,13 +7,7 @@ interface ManualGridPlannerProps {
 }
 
 const ManualGridPlanner: React.FC<ManualGridPlannerProps> = ({ config }) => {
-  const initialRiskPercent = config.initialRiskPercent ?? 1.0;
-  const gridDistance = config.gridDistance ?? 2000;
-  const gridMultiplier = config.gridMultiplier ?? 1.5;
-  const maxGridTrades = config.maxGridTrades ?? 3;
-  const gridDistanceMultiplier = config.gridDistanceMultiplier ?? 1.0;
-  const initialDeposit = config.initialDeposit ?? 10000;
-  
+  const { initialRiskPercent, gridDistance, gridMultiplier, maxGridTrades, gridDistanceMultiplier, initialDeposit } = config;
   const [startPrice, setStartPrice] = useState('70000');
 
   const handlePriceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -105,10 +99,10 @@ const ManualGridPlanner: React.FC<ManualGridPlannerProps> = ({ config }) => {
   };
 
   return (
-    <div className="bg-brand-secondary border border-brand-border rounded-lg p-4">
+    <div className="bg-brand-secondary border border-brand-border rounded-lg p-6">
       <div className="flex flex-col md:flex-row justify-between md:items-center mb-4">
-        <h2 className="text-lg font-semibold flex items-center gap-2 mb-3 md:mb-0">
-          <GridIcon className="w-5 h-5 text-brand-accent"/>
+        <h2 className="text-2xl font-semibold flex items-center gap-3 mb-3 md:mb-0">
+          <GridIcon className="w-6 h-6 text-brand-accent"/>
           Manual Grid Planner
         </h2>
         <div className="flex-shrink-0">
@@ -123,7 +117,7 @@ const ManualGridPlanner: React.FC<ManualGridPlannerProps> = ({ config }) => {
               value={startPrice}
               onChange={handlePriceChange}
               placeholder="e.g., 70000"
-              className="w-full md:w-48 bg-brand-primary border border-brand-border rounded-md pl-10 pr-3 py-2 text-brand-text font-mono focus:ring-2 focus:ring-brand-accent focus:border-brand-accent"
+              className="w-full md:w-48 bg-brand-primary border border-brand-border rounded-md pl-10 pr-3 py-2 text-white font-mono focus:ring-2 focus:ring-brand-accent focus:border-brand-accent"
             />
           </div>
         </div>
@@ -133,7 +127,7 @@ const ManualGridPlanner: React.FC<ManualGridPlannerProps> = ({ config }) => {
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div>
-          <h3 className="font-semibold text-base mb-2 text-center text-brand-buy">Buy Grid (Price Drops)</h3>
+          <h3 className="font-semibold text-lg mb-2 text-center text-brand-buy">Buy Grid (Price Drops)</h3>
           <div className="overflow-x-auto">
             <table className="w-full min-w-full text-sm bg-brand-primary/50 rounded-lg">
               <thead className="bg-brand-border/50">
@@ -153,7 +147,7 @@ const ManualGridPlanner: React.FC<ManualGridPlannerProps> = ({ config }) => {
           </div>
         </div>
         <div>
-          <h3 className="font-semibold text-base mb-2 text-center text-brand-sell">Sell Grid (Price Rises)</h3>
+          <h3 className="font-semibold text-lg mb-2 text-center text-brand-sell">Sell Grid (Price Rises)</h3>
           <div className="overflow-x-auto">
             <table className="w-full min-w-full text-sm bg-brand-primary/50 rounded-lg">
               <thead className="bg-brand-border/50">

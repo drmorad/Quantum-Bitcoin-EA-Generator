@@ -1,6 +1,5 @@
-
 import { GoogleGenAI, Type } from "@google/genai";
-import type { EAConfig, SimulatedResults, LiveAnalysisData, AIPersonality, FundamentalData, TradingSignal } from '../types.ts';
+import type { EAConfig, SimulatedResults, LiveAnalysisData, AIPersonality, FundamentalData, TradingSignal } from './types.ts';
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
@@ -12,13 +11,14 @@ const PERSONA_SYSTEM_INSTRUCTIONS: Record<AIPersonality, string> = {
 };
 
 const buildLiveDataMarkdown = (liveData: LiveAnalysisData): string => {
-    const periods = liveData.periods ?? { ma: 50, maType: 'EMA', rsi: 14, atr: 14 };
+    // This function now relies on the `periods` object within `liveData`
+    // to correctly label the indicators, removing duplicate logic.
+    const periods = liveData.periods ?? { ma: 50, maType: 'EMA', rsi: 14, atr: 14 }; // Default fallback
 
     let table = `| Metric                | Value                               |\n`;
     table +=    `|-----------------------|-------------------------------------|\n`;
     table +=    `| Latest BTC Price      | $${liveData.latestPrice.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}                 |\n`;
     table +=    `| Current Trend         | **${liveData.trend}**                       |\n`;
-    table +=    `| RSI Divergence        | **${liveData.rsiDivergence}**                |\n`;
     table +=    `| Trend MA(${periods.maType} ${periods.ma}) Value   | $${liveData.maValue.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}                 |\n`;
     
     if (liveData.rsiValue !== undefined) {
@@ -64,57 +64,79 @@ ${liveDataMarkdown}
 **Grid Strategy Configuration:**
 | Parameter                 | Value                               |
 |---------------------------|-------------------------------------|
-| Initial Risk              | ${(config.initialRiskPercent ?? 1.0).toFixed(2)}%        |
-| Grid Distance             | ${config.gridDistance ?? 2000} points       |
-| Grid Distance Multiplier  | ${(config.gridDistanceMultiplier ?? 1.0).toFixed(2)}   |
-| Grid Lot Multiplier       | ${(config.gridMultiplier ?? 1.5).toFixed(2)}           |
-| Max Grid Trades           | ${config.maxGridTrades ?? 3}            |
-| Trend MA Period           | ${config.maPeriod ?? 50}                  |
-| Trend MA Type             | ${config.maType ?? 'SMA'}                    |
-| Take Profit (Base)        | $${(config.takeProfit ?? 200).toFixed(2)}                 |
-| Take Profit Multiplier    | ${(config.takeProfitMultiplier ?? 1.0).toFixed(2)}      |
-| Stop Loss (% Equity)      | ${(config.stopLoss ?? 2.0).toFixed(2)}%     |
+| Initial Risk              | ${config.initialRiskPercent}%        |
+| Grid Distance             | ${config.gridDistance} points       |
+| Grid Distance Multiplier  | ${config.gridDistanceMultiplier}   |
+| Grid Lot Multiplier       | ${config.gridMultiplier}           |
+| Max Grid Trades           | ${config.maxGridTrades}            |
+| Trend MA Period           | ${config.maPeriod}                  |
+| Trend MA Type             | ${config.maType}                    |
+| Take Profit (Base)        | $${config.takeProfit}                 |
+| Take Profit Multiplier    | ${config.takeProfitMultiplier}      |
+| Stop Loss (% Equity)      | ${config.stopLoss.toFixed(2)}%     |
 | Trailing Stop             | ${config.useTrailingStop ? 'Active' : 'Inactive'} |
+| Trailing Start            | ${config.useTrailingStop ? `${config.trailingStopStart} points` : 'N/A'} |
+| Trailing Distance         | ${config.useTrailingStop ? `${config.trailingStopDistance} points` : 'N/A'} |
 `;
     auditSection = `
 **Your Audit (Provide in Markdown format with headers):**
 
-1.  **### Core Thesis Analysis**
-    In a paragraph, analyze the core logic of this configuration from your persona's perspective. What is this strategy trying to achieve? What are its primary strengths and weaknesses given the live market context (e.g., trend, volatility, RSI divergence)?
+1.  **### Strategy Audit Score (out of 10)**
+    Provide a score for each of the following categories and a brief justification based on your persona's priorities.
+    *   **Robustness & Safety:** (Your Score)/10. Justification...
+    *   **Profitability Potential:** (Your Score)/10. Justification...
+    *   **Risk/Reward Balance:** (Your Score)/10. Justification...
 
-2.  **### Parameter Deep Dive & Red Flags**
+2.  **### Core Thesis Analysis**
+    In a paragraph, analyze the core logic of this configuration from your persona's perspective. What is this strategy trying to achieve? What are its primary strengths and weaknesses?
+
+3.  **### Parameter Deep Dive & Red Flags**
     In a bulleted list, identify 2-3 specific parameters that are most critical or concerning. Explain the trade-offs involved (e.g., "The Grid Lot Multiplier of ${config.gridMultiplier} is extremely high, which dramatically increases profit potential but also exponentially raises the risk of a margin call.").
 
-3.  **### Actionable Recommendations**
+4.  **### Actionable Recommendations**
     Provide 2-3 specific, numbered suggestions for adjustments to improve the strategy according to your persona's goals. Explain the *why* behind each recommendation.
+
+5.  **### Manual Trading Insights**
+    Based on the live market snapshot, provide a brief, actionable insight for a manual trader using a similar grid strategy. Should they be cautious, aggressive, or wait on the sidelines?
 `;
   } else { // 'signal' strategy
     strategyConfigSection = `
 **Signal Strategy Configuration:**
 | Parameter                 | Value                               |
 |---------------------------|-------------------------------------|
-| Lot Size                  | ${(config.signal_lotSize ?? 0.01).toFixed(2)} |
-| Trend Filter MA Period    | ${config.signal_maPeriod ?? 50}           |
-| Trend Filter MA Type      | ${config.signal_maType ?? 'EMA'}             |
-| RSI Period                | ${config.signal_rsiPeriod ?? 14}          |
-| RSI Oversold Level        | ${config.signal_rsiOversold ?? 30}        |
-| RSI Overbought Level      | ${config.signal_rsiOverbought ?? 70}      |
-| ATR Period (for Risk)     | ${config.signal_atrPeriod ?? 14}          |
-| ATR SL Multiplier         | ${(config.signal_atrMultiplierSL ?? 2.0).toFixed(2)}   |
-| ATR TP Multiplier         | ${(config.signal_atrMultiplierTP ?? 3.0).toFixed(2)}   |
+| Lot Size                  | ${config.signal_lotSize.toFixed(2)} |
+| Trend Filter MA Period    | ${config.signal_maPeriod}           |
+| Trend Filter MA Type      | ${config.signal_maType}             |
+| RSI Period                | ${config.signal_rsiPeriod}          |
+| RSI Oversold Level        | ${config.signal_rsiOversold}        |
+| RSI Overbought Level      | ${config.signal_rsiOverbought}      |
+| ATR Period (for Risk)     | ${config.signal_atrPeriod}          |
+| ATR SL Multiplier         | ${config.signal_atrMultiplierSL}   |
+| ATR TP Multiplier         | ${config.signal_atrMultiplierTP}   |
 | Trailing Stop             | ${config.signal_useTrailingStop ? 'Active' : 'Inactive'} |
+| Trailing Start            | ${config.signal_useTrailingStop ? `${config.signal_trailingStopStart} points` : 'N/A'} |
+| Trailing Distance         | ${config.signal_useTrailingStop ? `${config.signal_trailingStopDistance} points` : 'N/A'} |
 `;
     auditSection = `
 **Your Audit (Provide in Markdown format with headers):**
 
-1.  **### Core Thesis Analysis**
-    In a paragraph, analyze the core logic of this configuration from your persona's perspective. What is this strategy trying to achieve (e.g., trend-following, mean-reversion)? What are its primary strengths and weaknesses given the live market context (e.g., trend, volatility, RSI divergence)?
+1.  **### Strategy Audit Score (out of 10)**
+    Provide a score for each of the following categories and a brief justification based on your persona's priorities.
+    *   **Signal Quality:** (Your Score)/10. Justification...
+    *   **Profitability Potential:** (Your Score)/10. Justification...
+    *   **Risk/Reward Balance:** (Your Score)/10. Justification...
 
-2.  **### Parameter Deep Dive & Red Flags**
+2.  **### Core Thesis Analysis**
+    In a paragraph, analyze the core logic of this configuration from your persona's perspective. What is this strategy trying to achieve (e.g., trend-following, mean-reversion)? What are its primary strengths and weaknesses?
+
+3.  **### Parameter Deep Dive & Red Flags**
     In a bulleted list, identify 2-3 key parameter interactions that are most critical or concerning (e.g., "The short MA period of ${config.signal_maPeriod} combined with the tight RSI levels might lead to frequent 'whipsaw' trades in non-trending markets.").
 
-3.  **### Actionable Recommendations**
+4.  **### Actionable Recommendations**
     Provide 2-3 specific, numbered suggestions for adjustments to improve the strategy according to your persona's goals. Explain the *why* behind each recommendation (e.g., "Widen the RSI levels to 25/75 to filter for more significant pullbacks...").
+
+5.  **### Manual Trading Insights**
+    Based on the live market snapshot, is there an imminent trade signal according to the EA's logic? Should a manual trader take it, or is there a reason to be cautious?
 `;
   }
   
@@ -138,13 +160,13 @@ export const generateAnalysis = async (prompt: string, personality: AIPersonalit
         contents: prompt,
         config: {
             systemInstruction: systemInstruction,
-            temperature: 0.5,
         },
     });
     return response.text;
   } catch (error) {
     console.error("Error calling Gemini API:", error);
     const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
+    // Check for specific Gemini API error messages if available
     if (errorMessage.includes('API key not valid')) {
         return "**API Key Error:** The provided API key is not valid. Please ensure it is configured correctly in your environment.";
     }
@@ -160,13 +182,12 @@ export const getSignalPromptTemplate = (liveData: LiveAnalysisData, fundamentals
 - **Latest Price:** $${liveData.latestPrice.toFixed(2)}
 - **50-Period EMA:** $${liveData.maValue.toFixed(2)}
 - **Overall Trend (based on price vs EMA):** ${liveData.trend}
-- **RSI Divergence Detected:** ${liveData.rsiDivergence}
 - **14-Period RSI:** ${liveData.rsiValue?.toFixed(2) ?? 'N/A'}
 - **14-Period ATR (Volatility):** $${liveData.atrValue?.toFixed(2) ?? 'N/A'}`;
 
     if (liveData.macd) {
         technicalData += `
-- **MACD (12,26,9):** Hist: ${liveData.macd.histogram.toFixed(2)}`;
+- **MACD (12,26,9):** Line: ${liveData.macd.macdLine.toFixed(2)}, Signal: ${liveData.macd.signalLine.toFixed(2)}, Hist: ${liveData.macd.histogram.toFixed(2)}`;
     }
     if (liveData.stochastic) {
         technicalData += `
@@ -184,14 +205,19 @@ ${technicalData}
 - **Key Headline:** "${fundamentals.headline}"
 
 **Your Task:**
-1.  **Analyze the Confluence:** Examine how the technical indicators (EMA, RSI, ATR, MACD, Stochastic) and especially the RSI Divergence align or diverge with the fundamental sentiment.
-2.  **Formulate a Trade Thesis:** Based on your analysis, decide on the most probable short-term direction. State whether you will BUY, SELL, or HOLD. A detected RSI divergence is a very strong factor and should heavily influence your decision.
+1.  **Analyze the Confluence:** Examine how the technical indicators (EMA, RSI, ATR, MACD, Stochastic) align or diverge with the fundamental sentiment.
+    - Is the trend confirmed by momentum (RSI & MACD histogram)?
+    - Are oscillators (RSI, Stochastic) in overbought/oversold territory? Does this suggest a pullback or a reversal?
+    - Has there been a recent MACD or Stochastic crossover event?
+    - Is the sentiment supporting the current price action?
+    - Is volatility (ATR) high or low, and how does that affect risk?
+2.  **Formulate a Trade Thesis:** Based on your analysis, decide on the most probable short-term direction. State whether you will BUY, SELL, or HOLD.
 3.  **Define Trade Parameters:**
-    - **Entry:** If BUY/SELL, determine a precise entry price. If HOLD, set to 0.
-    - **Take Profit (TP):** Calculate a logical TP level using a multiple of the ATR (e.g., 1.5 * ATR). If HOLD, set to 0.
-    - **Stop Loss (SL):** Calculate a defensive SL level using a multiple of the ATR (e.g., 1.0 * ATR). If HOLD, set to 0.
-4.  **Justify Your Decision:** Write a detailed rationale explaining your thought process. Cover the technical (especially the divergence) and fundamental reasons for your signal.
-5.  **Determine Confidence:** Assign a confidence level ('High', 'Medium', 'Low') based on how many factors align. High confidence requires strong confluence between technicals, fundamentals, and any detected divergence.
+    - **Entry:** If BUY/SELL, determine a precise entry price. This could be the current market price or a nearby strategic level (e.g., waiting for a pullback to the EMA). If HOLD, set to 0.
+    - **Take Profit (TP):** Calculate a logical TP level. A common method is using a multiple of the ATR (e.g., 1.5 * ATR) from your entry, or targeting a recent swing high/low. If HOLD, set to 0.
+    - **Stop Loss (SL):** Calculate a defensive SL level. This should also be based on volatility (e.g., 1.0 * ATR) or a key technical level. If HOLD, set to 0.
+4.  **Justify Your Decision:** Write a detailed rationale explaining your thought process. Cover the technical and fundamental reasons for your signal, entry, TP, and SL placement. Explain *why* you chose this specific course of action.
+5.  **Determine Confidence:** Assign a confidence level ('High', 'Medium', 'Low') based on how many factors align in favor of your trade thesis.
 
 Provide your final analysis ONLY in the following JSON format. Do not include any text or markdown formatting before or after the JSON block.
 `;
@@ -220,36 +246,22 @@ export const generateTradingSignal = async (liveData: LiveAnalysisData, fundamen
         }
     });
     
+    // The response text is a JSON string, so we parse it.
     const jsonStr = response.text.trim();
-    const parsedData = JSON.parse(jsonStr);
-
-    // Robust validation: Check for null and ensure all required fields are present and have the correct type.
-    // This prevents malformed data from the API from crashing the application.
-    if (parsedData === null ||
-        typeof parsedData.signal !== 'string' ||
-        typeof parsedData.confidence !== 'string' ||
-        typeof parsedData.entry !== 'number' ||
-        typeof parsedData.takeProfit !== 'number' ||
-        typeof parsedData.stopLoss !== 'number' ||
-        typeof parsedData.rationale !== 'string') 
-    {
-      console.warn("Received malformed signal data from API, defaulting to HOLD:", parsedData);
-      return {
-        signal: 'HOLD',
-        confidence: 'Low',
-        entry: 0,
-        takeProfit: 0,
-        stopLoss: 0,
-        rationale: '**Analysis Inconclusive:** The AI returned an incomplete or invalid signal. This can happen in highly volatile or uncertain market conditions. It is safest to wait for a clearer setup.'
-      };
-    }
-    
-    const signalData: TradingSignal = parsedData;
+    const signalData: TradingSignal = JSON.parse(jsonStr);
     return signalData;
 
   } catch (error) {
     console.error("Error calling Gemini API for trading signal:", error);
     const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
-    throw new Error(`Failed to generate trading signal: ${errorMessage}`);
+    // Return a structured error signal
+    return {
+        signal: 'HOLD',
+        confidence: 'Low',
+        entry: 0,
+        takeProfit: 0,
+        stopLoss: 0,
+        rationale: `**An error occurred while generating the trading signal:**\n\n*${errorMessage}*\n\nPlease check the console for more details.`
+    };
   }
 };
