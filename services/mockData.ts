@@ -2,26 +2,22 @@
 import type { CandlestickData, TickerData } from '../types.ts';
 import type { Time } from 'lightweight-charts';
 
+const CACHED_DATA_KEY = 'mql5-chart-data-cache';
+const CACHE_EXPIRY = 3600 * 1000; // 1 hour cache
+
 // --- Ticker Simulation State ---
-// Updated to reflect a more current price level for BTC/USD.
 const mockTickerState = {
-    currentPrice: 114004.01, 
-    openPrice24h: 113582.55, 
+    currentPrice: 68543.21, 
+    openPrice24h: 68010.55, 
 };
 
 /**
  * Generates a single, simulated ticker data object.
- * Each call will produce a new price that is a small, random fluctuation
- * from the previous price, mimicking live market activity.
- * @returns A TickerData object with updated price and change metrics.
  */
 export const generateMockTickerData = (): TickerData => {
-    // Simulate a small price change. The fluctuation is kept within a
-    // realistic range for a 2-second interval.
     const change = (Math.random() - 0.5) * (mockTickerState.currentPrice * 0.00005);
     mockTickerState.currentPrice += change;
     
-    // Ensure the price doesn't drift into negative territory.
     if (mockTickerState.currentPrice < 0) {
         mockTickerState.currentPrice = 0;
     }
@@ -38,58 +34,59 @@ export const generateMockTickerData = (): TickerData => {
 
 
 /**
- * Generates a realistic-looking historical dataset of 200 candlestick bars,
- * ending at the current hour. This ensures the chart data is always up-to-date.
- * This function generates the data backwards from the present time to ensure
- * the latest candle aligns with the live ticker price.
- * @returns An array of 200 CandlestickData objects in chronological order.
+ * Generates a realistic-looking historical dataset of 200 candlestick bars.
+ * This function caches the data in localStorage to provide a consistent experience.
  */
 export const generateMockCandlestickData = (): CandlestickData[] => {
-    const data: CandlestickData[] = [];
-    const BARS_TO_GENERATE = 200;
-
-    const now = new Date();
-    // Round down to the beginning of the current hour for the latest bar's timestamp.
-    now.setMinutes(0, 0, 0);
-    let currentTimestamp = Math.floor(now.getTime() / 1000);
-
-    // Start generating backwards from the ticker's current price for consistency.
-    let price = mockTickerState.currentPrice;
-
-    for (let i = 0; i < BARS_TO_GENERATE; i++) {
-        const close = price; // The close of the current bar is based on the previous (more recent) bar's open.
-        
-        // Generate a plausible open price for this bar.
-        const movement = (Math.random() - 0.49) * (close * 0.007);
-        const open = close - movement;
-        
-        // Determine high/low around the open/close.
-        let high = Math.max(open, close) + Math.random() * (close * 0.002);
-        let low = Math.min(open, close) - Math.random() * (close * 0.002);
-        
-        // Enforce basic candle integrity.
-        high = Math.max(high, open, close);
-        low = Math.min(low, open, close);
-
-        // Final sanity checks before adding the candle to the dataset.
-        if (isFinite(open) && isFinite(high) && isFinite(low) && isFinite(close) && low > 0) {
-             data.push({
-                time: currentTimestamp as Time,
-                open,
-                high,
-                low,
-                close,
-            });
+    const cachedItem = localStorage.getItem(CACHED_DATA_KEY);
+    if (cachedItem) {
+        try {
+            const { timestamp, data } = JSON.parse(cachedItem);
+            if (Date.now() - timestamp < CACHE_EXPIRY) {
+                return data.map((d: any) => ({...d, time: d.time as Time}));
+            }
+        } catch (e) {
+            console.error("Failed to parse cached chart data, regenerating.", e);
+            localStorage.removeItem(CACHED_DATA_KEY);
         }
-
-        // For the next iteration (the bar before this one), its close price will be our current open price,
-        // ensuring a continuous price series.
-        price = open;
-
-        // Move back one hour for the next bar.
-        currentTimestamp -= 3600;
     }
 
-    // The data was generated from newest to oldest, so reverse it to be chronological.
-    return data.reverse();
+    const data: CandlestickData[] = [];
+    const BARS_TO_FETCH = 200;
+    
+    let currentTime = Math.floor(Date.now() / 1000) - BARS_TO_FETCH * 3600; 
+    let currentPrice = 67000.00;
+
+    for (let i = 0; i < BARS_TO_FETCH; i++) {
+        const open = currentPrice;
+        
+        const movement = (Math.random() - 0.48) * (currentPrice * 0.005);
+        const close = open + movement;
+        
+        const high = Math.max(open, close) + Math.random() * (currentPrice * 0.001);
+        const low = Math.min(open, close) - Math.random() * (currentPrice * 0.001);
+
+        data.push({
+            time: currentTime as Time,
+            open,
+            high,
+            low,
+            close,
+        });
+
+        currentPrice = close;
+        currentTime += 3600;
+    }
+    
+    const dataToCache = {
+        timestamp: Date.now(),
+        data: data,
+    };
+    try {
+        localStorage.setItem(CACHED_DATA_KEY, JSON.stringify(dataToCache));
+    } catch (e) {
+        console.error("Failed to cache chart data.", e);
+    }
+
+    return data;
 };

@@ -1,14 +1,12 @@
 
-
-import React, { useState, useEffect, useMemo } from 'react';
-import { CodeIcon, CopyIcon, CheckIcon, DownloadIcon, LockIcon, XIcon, FullscreenIcon } from './icons.tsx';
+import React, 'react';
+import { CodeIcon, CopyIcon, CheckIcon, DownloadIcon, LockIcon, XIcon } from './icons.tsx';
 
 interface CodeDisplayProps {
   code: string;
   isEnabled: boolean;
   onClose?: () => void;
-  isModal: boolean;
-  onFullscreen?: () => void;
+  isModal?: boolean;
 }
 
 /**
@@ -81,11 +79,11 @@ const highlightMQL5 = (code: string): string => {
   return highlightedCode;
 };
 
-const CodeDisplay: React.FC<CodeDisplayProps> = ({ code, isEnabled, onClose, isModal, onFullscreen }) => {
-  const [copied, setCopied] = useState(false);
-  const highlightedCode = useMemo(() => highlightMQL5(code), [code]);
+const CodeDisplay: React.FC<CodeDisplayProps> = ({ code, isEnabled, onClose }) => {
+  const [copied, setCopied] = React.useState(false);
+  const highlightedCode = React.useMemo(() => highlightMQL5(code), [code]);
 
-  useEffect(() => {
+  React.useEffect(() => {
     if (copied) {
       const timer = setTimeout(() => setCopied(false), 2000);
       return () => clearTimeout(timer);
@@ -112,7 +110,7 @@ const CodeDisplay: React.FC<CodeDisplayProps> = ({ code, isEnabled, onClose, isM
   };
   
   return (
-    <div className={`bg-brand-secondary border border-brand-border rounded-lg flex flex-col relative ${isModal ? 'h-full' : 'h-full'}`}>
+    <div className="bg-brand-secondary border border-brand-border rounded-lg flex flex-col relative h-full">
       <div className="flex justify-between items-center p-4 border-b border-brand-border flex-shrink-0">
         <h2 className="text-lg font-semibold flex items-center gap-2">
           <CodeIcon className="w-5 h-5 text-brand-accent"/>
@@ -137,24 +135,14 @@ const CodeDisplay: React.FC<CodeDisplayProps> = ({ code, isEnabled, onClose, isM
             >
             {copied ? <CheckIcon className="w-5 h-5 text-brand-buy" /> : <CopyIcon className="w-5 h-5" />}
             </button>
-             {!isModal && onFullscreen && (
+            {onClose && (
               <button 
-                onClick={onFullscreen} 
-                className="p-2 rounded-md bg-brand-primary hover:bg-brand-border transition-colors text-brand-muted hover:text-brand-text focus:outline-none focus:ring-2 focus:ring-brand-accent"
-                aria-label="View fullscreen"
-                title="View fullscreen"
+                  onClick={onClose} 
+                  className="p-2 rounded-full hover:bg-brand-border transition-colors ml-2"
+                  aria-label="Close code view"
               >
-                <FullscreenIcon className="w-5 h-5" />
+                  <XIcon className="w-5 h-5 text-brand-muted" />
               </button>
-            )}
-            {isModal && onClose && (
-                 <button 
-                    onClick={onClose} 
-                    className="p-2 rounded-full hover:bg-brand-border transition-colors ml-2"
-                    aria-label="Close code view"
-                >
-                    <XIcon className="w-5 h-5 text-brand-muted" />
-                </button>
             )}
         </div>
       </div>

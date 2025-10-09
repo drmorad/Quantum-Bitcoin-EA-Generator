@@ -1,5 +1,4 @@
 
-
 import React, { useState, useCallback, useEffect } from 'react';
 import { marked } from 'marked';
 import type { EAConfig, SimulatedResults, LiveAnalysisData, AIPersonality } from '../types.ts';
@@ -12,6 +11,13 @@ interface AIAnalysisProps {
   config: EAConfig;
   results: SimulatedResults;
 }
+
+const personaDescriptions: Record<AIPersonality, string> = {
+  'Quantitative Analyst': 'Focuses on objective, data-driven analysis and statistical probabilities.',
+  'Risk Manager': 'Prioritizes capital preservation and scrutinizes all risk parameters.',
+  'Aggressive Scalper': 'Favors high-frequency trading and capitalizing on short-term volatility.',
+  'Contrarian Investor': 'Challenges trend-following assumptions and looks for potential market reversals.',
+};
 
 const AIAnalysis: React.FC<AIAnalysisProps> = ({ config, results }) => {
   const [isLoading, setIsLoading] = useState(false);
@@ -37,7 +43,7 @@ const AIAnalysis: React.FC<AIAnalysisProps> = ({ config, results }) => {
           rsiDivergence: 'None',
       };
       
-      const newPrompt = getPromptTemplate(config, results, dummyLiveData);
+      const newPrompt = getPromptTemplate(config, results, dummyLiveData, personality);
       setCustomPrompt(newPrompt);
       setAnalysis(''); // Clear old analysis
   }, [config, personality, results]);
@@ -53,9 +59,9 @@ const AIAnalysis: React.FC<AIAnalysisProps> = ({ config, results }) => {
           throw new Error("Could not fetch sufficient market data for live analysis.");
       }
       const liveData = calculateLiveIndicators(marketData, config);
-      const promptWithLiveData = getPromptTemplate(config, results, liveData);
+      const promptWithLiveData = getPromptTemplate(config, results, liveData, personality);
       
-      const finalPrompt = customPrompt.includes("Latest BTC Price: $0.00") ? promptWithLiveData : customPrompt;
+      const finalPrompt = customPrompt.includes("Latest BTC Price      | $0.00") ? promptWithLiveData : customPrompt;
       setCustomPrompt(finalPrompt);
 
       const response = await generateAnalysis(finalPrompt, personality);
@@ -90,6 +96,9 @@ const AIAnalysis: React.FC<AIAnalysisProps> = ({ config, results }) => {
         >
           {personalities.map(p => <option key={p} value={p}>{p}</option>)}
         </select>
+        <p className="text-xs text-brand-muted mt-2 italic h-4">
+            {personaDescriptions[personality]}
+        </p>
       </div>
 
        <div className="border-b border-brand-border mb-3">

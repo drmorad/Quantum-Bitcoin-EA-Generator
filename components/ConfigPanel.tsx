@@ -1,7 +1,7 @@
 import React from 'react';
 import type { EAConfig, Presets } from '../types.ts';
 import InputSlider from './InputSlider.tsx';
-import { SettingsIcon, TrashIcon, GridIcon, SignalIcon, ShieldCheckIcon, AlertTriangleIcon, CalendarIcon } from './icons.tsx';
+import { SettingsIcon, TrashIcon, GridIcon, SignalIcon, ShieldCheckIcon, AlertTriangleIcon, CalendarIcon, GoogleDriveIcon } from './icons.tsx';
 
 interface ConfigPanelProps {
   config: EAConfig;
@@ -15,6 +15,10 @@ interface ConfigPanelProps {
   onLoadPreset: (name: string) => void;
   onDeletePreset: () => void;
   onOpenOptimizer: (parameter: keyof EAConfig, title: string) => void;
+  isDriveAuthenticated: boolean;
+  onSaveToDrive: () => void;
+  onLoadFromDrive: () => void;
+  syncStatus: string;
 }
 
 const PARAM_RANGES: Omit<Record<keyof EAConfig, { min: number; max: number }>, 'maType' | 'useTrailingStop' | 'strategyType' | 'signal_maType' | 'startDate' | 'endDate' | 'signal_useTrailingStop'> = {
@@ -22,6 +26,8 @@ const PARAM_RANGES: Omit<Record<keyof EAConfig, { min: number; max: number }>, '
     initialRiskPercent: { min: 0.1, max: 5.0 },
     maxSpread: { min: 1, max: 5000 },
     initialDeposit: { min: 100, max: 1000000 },
+    commission: { min: 0, max: 50 },
+    slippage: { min: 0, max: 100 },
     gridDistance: { min: 100, max: 5000 },
     gridDistanceMultiplier: { min: 1.0, max: 2.5 },
     gridMultiplier: { min: 1.1, max: 2.5 },
@@ -57,6 +63,10 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
   onLoadPreset,
   onDeletePreset,
   onOpenOptimizer,
+  isDriveAuthenticated,
+  onSaveToDrive,
+  onLoadFromDrive,
+  syncStatus
 }) => {
 
   const handleChange = (key: keyof EAConfig, value: number | string | 'SMA' | 'EMA' | boolean | 'grid' | 'signal') => {
@@ -64,12 +74,24 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
     onConfigChange(newConfig);
   };
 
+  const isSyncing = syncStatus.includes('Saving') || syncStatus.includes('Loading');
+
   return (
     <div className="bg-brand-secondary border border-brand-border rounded-lg p-4 h-fit">
       <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
         <SettingsIcon className="w-5 h-5 text-brand-accent"/>
         EA Configuration
       </h2>
+      
+      <div className="mb-4">
+        <h3 className="text-sm font-medium text-brand-muted">Active Strategy</h3>
+        <div className="mt-1 flex items-center gap-3 bg-brand-primary border border-brand-border rounded-lg px-4 py-3">
+          {config.strategyType === 'grid' ? <GridIcon className="w-6 h-6 text-brand-accent" /> : <SignalIcon className="w-6 h-6 text-brand-accent" />}
+          <span className="text-base font-semibold text-brand-text">
+            {config.strategyType === 'grid' ? 'Grid Strategy' : 'Signal Strategy'}
+          </span>
+        </div>
+      </div>
 
       {errors.general && (
         <div className="mb-4 p-3 border-l-4 border-yellow-400 bg-yellow-900/50 rounded-r-lg text-yellow-200 space-y-1" role="alert">
@@ -78,16 +100,30 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
             <h4 className="font-bold text-base text-yellow-300">Risk Warning</h4>
           </div>
           <div className="pl-7 text-xs">
-            {errors.general.split('\n').map((line, index) => (
+            {errors.general.split('\\n').map((line, index) => (
                 <p key={index}>{line.replace('Warning: ', '')}</p>
             ))}
           </div>
         </div>
       )}
+      
+      <div className="space-y-4 mb-4 pb-4 border-b border-brand-border">
+          <h3 className="text-base font-semibold text-brand-accent flex items-center gap-2"><GoogleDriveIcon className="w-5 h-5"/> Cloud Storage</h3>
+          <div className="grid grid-cols-2 gap-2">
+              <button onClick={onSaveToDrive} disabled={!isDriveAuthenticated || isSyncing} className="px-3 py-2 text-sm font-semibold rounded-md bg-brand-primary border border-brand-border text-brand-text hover:bg-brand-border transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                  {syncStatus === 'Saving...' ? 'Saving...' : 'Save to Drive'}
+              </button>
+              <button onClick={onLoadFromDrive} disabled={!isDriveAuthenticated || isSyncing} className="px-3 py-2 text-sm font-semibold rounded-md bg-brand-primary border border-brand-border text-brand-text hover:bg-brand-border transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                  {syncStatus === 'Loading...' ? 'Loading...' : 'Load from Drive'}
+              </button>
+          </div>
+          <p className="text-xs text-center text-brand-muted h-4">{!isDriveAuthenticated ? "Sign in to enable cloud storage." : syncStatus}</p>
+      </div>
+
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 pb-4 border-b border-brand-border">
         <div className="flex flex-col">
-          <label htmlFor="preset-select" className="block text-sm font-medium text-brand-muted mb-1">Load Preset</label>
+          <label htmlFor="preset-select" className="block text-sm font-medium text-brand-muted mb-1">Load Preset (Local)</label>
           <div className="flex gap-2">
             <select
               id="preset-select"
@@ -109,7 +145,7 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
           </div>
         </div>
         <div className="flex flex-col">
-            <label htmlFor="preset-name" className="block text-sm font-medium text-brand-muted mb-1">Save Current as Preset</label>
+            <label htmlFor="preset-name" className="block text-sm font-medium text-brand-muted mb-1">Save as Local Preset</label>
             <div className="flex items-end gap-2">
                 <input
                     id="preset-name"
@@ -156,20 +192,14 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
                 <div className="md:col-span-2">
                     <InputSlider label="Initial Deposit (USD)" value={config.initialDeposit} onChange={(v) => handleChange('initialDeposit', v)} min={PARAM_RANGES.initialDeposit.min} max={PARAM_RANGES.initialDeposit.max} step={100} tooltip="The starting balance for the backtest simulation." error={errors.initialDeposit} />
                 </div>
-            </div>
-        </div>
-
-        <div className="pt-2">
-            <h3 className="text-base font-semibold text-brand-accent border-b border-brand-border pb-2">Strategy Type</h3>
-            <div className="grid grid-cols-2 gap-2 p-1 bg-brand-primary rounded-lg border border-brand-border mt-4">
-                <button onClick={() => handleChange('strategyType', 'grid')} className={`flex items-center justify-center gap-2 px-4 py-2 rounded-md text-sm font-semibold transition-colors ${config.strategyType === 'grid' ? 'bg-brand-accent text-white' : 'text-brand-muted hover:bg-brand-secondary'}`}><GridIcon className="w-5 h-5"/> Grid Strategy</button>
-                <button onClick={() => handleChange('strategyType', 'signal')} className={`flex items-center justify-center gap-2 px-4 py-2 rounded-md text-sm font-semibold transition-colors ${config.strategyType === 'signal' ? 'bg-brand-accent text-white' : 'text-brand-muted hover:bg-brand-secondary'}`}><SignalIcon className="w-5 h-5"/> Signal Strategy</button>
+                <InputSlider label="Commission ($ per Lot)" value={config.commission} onChange={(v) => handleChange('commission', v)} min={PARAM_RANGES.commission.min} max={PARAM_RANGES.commission.max} step={0.5} tooltip="Commission cost per full lot round turn (e.g., for backtest simulation)." error={errors.commission} />
+                <InputSlider label="Slippage (Points)" value={config.slippage} onChange={(v) => handleChange('slippage', v)} min={PARAM_RANGES.slippage.min} max={PARAM_RANGES.slippage.max} step={1} tooltip="Maximum allowed slippage for trade execution in points." error={errors.slippage} />
             </div>
         </div>
 
         {config.strategyType === 'grid' && (
             <>
-                <h3 className="text-base font-semibold text-brand-accent border-b border-brand-border pb-2 flex items-center gap-2"><GridIcon className="w-5 h-5"/> Grid Behavior</h3>
+                <h3 className="text-base font-semibold text-brand-accent border-b border-brand-border pb-2 flex items-center gap-2 pt-4"><GridIcon className="w-5 h-5"/> Grid Behavior</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <InputSlider label="Initial Risk (%)" value={config.initialRiskPercent} onChange={(v) => handleChange('initialRiskPercent', v)} min={PARAM_RANGES.initialRiskPercent.min} max={PARAM_RANGES.initialRiskPercent.max} step={0.05} tooltip="The percentage of account equity to determine the initial trade's lot size. E.g., 1% on a $10k account might open ~0.01 lots." error={errors.initialRiskPercent} isOptimizable={true} onOptimize={() => onOpenOptimizer('initialRiskPercent', 'Initial Risk (%)')} />
                     <InputSlider label="Trend MA Period" value={config.maPeriod} onChange={(v) => handleChange('maPeriod', v)} min={PARAM_RANGES.maPeriod.min} max={PARAM_RANGES.maPeriod.max} step={1} tooltip="The period for the Moving Average used to determine the trend." error={errors.maPeriod} isOptimizable={true} onOptimize={() => onOpenOptimizer('maPeriod', 'Trend MA Period')} />
@@ -212,7 +242,7 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
 
         {config.strategyType === 'signal' && (
             <>
-                <h3 className="text-base font-semibold text-brand-accent border-b border-brand-border pb-2 flex items-center gap-2"><SignalIcon className="w-5 h-5" /> Trade Entry Signal</h3>
+                <h3 className="text-base font-semibold text-brand-accent border-b border-brand-border pb-2 flex items-center gap-2 pt-4"><SignalIcon className="w-5 h-5" /> Trade Entry Signal</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="flex flex-col">
                         <label className="font-medium text-sm text-brand-muted mb-2">Trend MA Type</label>
@@ -227,10 +257,10 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
                     <InputSlider label="RSI Overbought Level" value={config.signal_rsiOverbought} onChange={(v) => handleChange('signal_rsiOverbought', v)} min={PARAM_RANGES.signal_rsiOverbought.min} max={PARAM_RANGES.signal_rsiOverbought.max} step={1} tooltip="RSI level to trigger sell signals in a downtrend." error={errors.signal_rsiOverbought} isOptimizable={true} onOptimize={() => onOpenOptimizer('signal_rsiOverbought', 'RSI Overbought Level')} />
                 </div>
 
-                <h3 className="text-base font-semibold text-brand-accent border-b border-brand-border pb-2 flex items-center gap-2"><ShieldCheckIcon className="w-5 h-5" /> Risk & Position Sizing</h3>
+                <h3 className="text-base font-semibold text-brand-accent border-b border-brand-border pb-2 flex items-center gap-2"><ShieldCheckIcon className="w-5 h-5"/> Risk & Position Sizing</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <InputSlider label="Lot Size" value={config.signal_lotSize} onChange={(v) => handleChange('signal_lotSize', v)} min={PARAM_RANGES.signal_lotSize.min} max={PARAM_RANGES.signal_lotSize.max} step={0.01} tooltip="The fixed lot size for each trade." error={errors.signal_lotSize} />
-                    <InputSlider label="ATR Period" value={config.signal_atrPeriod} onChange={(v) => handleChange('signal_atrPeriod', v)} min={PARAM_RANGES.signal_atrPeriod.min} max={PARAM_RANGES.signal_atrPeriod.max} step={1} tooltip="The period for the ATR indicator, used for SL/TP placement." error={errors.signal_atrPeriod} />
+                    <InputSlider label="ATR Period" value={config.signal_atrPeriod} onChange={(v) => handleChange('signal_atrPeriod', v)} min={PARAM_RANGES.signal_atrPeriod.min} max={PARAM_RANGES.signal_atrPeriod.max} step={1} tooltip="The period for the ATR indicator, used for SL/TP placement." error={errors.signal_atrPeriod} isOptimizable={true} onOptimize={() => onOpenOptimizer('signal_atrPeriod', 'ATR Period')} />
                     <InputSlider label="ATR Multiplier for SL" value={config.signal_atrMultiplierSL} onChange={(v) => handleChange('signal_atrMultiplierSL', v)} min={PARAM_RANGES.signal_atrMultiplierSL.min} max={PARAM_RANGES.signal_atrMultiplierSL.max} step={0.1} tooltip="Stop Loss distance in multiples of the ATR value." error={errors.signal_atrMultiplierSL} isOptimizable={true} onOptimize={() => onOpenOptimizer('signal_atrMultiplierSL', 'ATR Multiplier for SL')} />
                     <InputSlider label="ATR Multiplier for TP" value={config.signal_atrMultiplierTP} onChange={(v) => handleChange('signal_atrMultiplierTP', v)} min={PARAM_RANGES.signal_atrMultiplierTP.min} max={PARAM_RANGES.signal_atrMultiplierTP.max} step={0.1} tooltip="Take Profit distance in multiples of the ATR value." error={errors.signal_atrMultiplierTP} isOptimizable={true} onOptimize={() => onOpenOptimizer('signal_atrMultiplierTP', 'ATR Multiplier for TP')} />
                 </div>

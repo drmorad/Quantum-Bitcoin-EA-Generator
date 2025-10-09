@@ -1,10 +1,10 @@
-// FIX: Correctly import React hooks using curly braces for named imports.
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import type { EAConfig, Presets, SimulatedResults, OptimizationResult } from './types.ts';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import type { EAConfig, Presets, SimulatedResults, OptimizationResult, StrategyType, DriveData } from './types.ts';
 import { generateMql5Code } from './services/mql5Generator.ts';
+import { saveDataToDrive, loadDataFromDrive } from './services/googleDriveService.ts';
 import ConfigPanel from './components/ConfigPanel.tsx';
 import CodeDisplay from './components/CodeDisplay.tsx';
-import InteractiveChart from './components/InteractiveChart.tsx';
+import TradingViewChartWidget from './components/TradingViewChartWidget.tsx';
 import BacktestResults from './components/BacktestResults.tsx';
 import ManualGridPlanner from './components/ManualGridPlanner.tsx';
 import AIAnalysis from './components/AIAnalysis.tsx';
@@ -14,7 +14,18 @@ import OptimizationModal from './components/OptimizationModal.tsx';
 import ThemeToggle from './components/ThemeToggle.tsx';
 import { usePresets } from './hooks/usePresets.ts';
 import { useTheme } from './hooks/useTheme.ts';
-import { QuantumIcon, BookOpenIcon, XIcon, GitHubIcon } from './components/icons.tsx';
+import { useGoogleAuth } from './hooks/useGoogleAuth.ts';
+import { QuantumIcon, BookOpenIcon, XIcon, GitHubIcon, TrendingUpIcon, LayoutDashboardIcon, SparklesIcon, InfoIcon, GoogleIcon } from './components/icons.tsx';
+import ChangelogModal from './components/ChangelogModal.tsx';
+import LiveTradingSignal from './components/LiveTradingSignal.tsx';
+import MarketNewsFeed from './components/MarketNewsFeed.tsx';
+import MyfxbookWidget from './components/MyfxbookWidget.tsx';
+import FloatingCodeButton from './components/FloatingCodeButton.tsx';
+import WelcomeScreen from './components/WelcomeScreen.tsx';
+
+const APP_VERSION = "1.3.0";
+
+type ActiveTab = 'chart' | 'dashboard' | 'analysis';
 
 interface ManualModalProps {
   onClose: () => void;
@@ -49,15 +60,20 @@ const ManualModal: React.FC<ManualModalProps> = ({ onClose }) => {
           </section>
           
           <section>
-            <h3 className="text-xl font-semibold text-brand-accent mb-2">2. How to Use</h3>
+            <h3 className="text-xl font-semibold text-brand-accent mb-2">2. New: Google Drive Sync</h3>
+            <p>You can now save and load your configurations and custom presets directly to your Google Drive. Sign in with your Google account using the button in the header to enable this feature. Your data is stored in a private application folder that only this app can access.</p>
+          </section>
+
+          <section>
+            <h3 className="text-xl font-semibold text-brand-accent mb-2">3. How to Use</h3>
             <ol className="list-decimal list-inside space-y-2">
-              <li><strong>Select Strategy Type:</strong> In the configuration panel, choose between "Grid Strategy" and "Signal Strategy". The available options will change based on your selection.</li>
+              <li><strong>Select Strategy Type:</strong> On the welcome screen, enter your initial deposit and choose between "Grid Strategy" and "Signal Strategy".</li>
               <li><strong>Configure Parameters:</strong> Use the sliders to set up your chosen strategy's logic, risk management, and other parameters. Hover over the info icon next to each label for a detailed tooltip.</li>
-              <li><strong>Optimize Parameters:</strong> Click the "tune" icon next to key parameters to open the optimizer. Test a range of values to see how they affect performance metrics in real-time and apply the best settings with one click.</li>
-              <li><strong>Analyze on Chart:</strong> The "Interactive Chart" visualizes your MA and, for the grid strategy, potential grid entry levels.</li>
-              <li><strong>Review Metrics & AI Analysis:</strong> Check the "Simulated Backtest Results" for an illustrative performance overview. Click "Audit Configuration" to get expert suggestions from Gemini.</li>
-              <li><strong>Manage Presets:</strong> Save your favorite configurations. The application comes with pre-loaded strategies for both types.</li>
-              <li><strong>Generate Code:</strong> The MQL5 code is generated in real-time. If your configuration has critical errors, code generation will be paused. Warnings will be shown but won't block code generation.</li>
+              <li><strong>Optimize Parameters (AI-Powered):</strong> Click the "tune" icon next to key parameters to open the optimizer. Click "Suggest with AI" to get an intelligent test range, then run the optimization to find the best settings.</li>
+              <li><strong>Analyze on Chart:</strong> The "Chart & Planner" tab visualizes BTC/USD price action. For grid strategies, it also includes the Manual Grid Planner.</li>
+              <li><strong>Review Live Dashboard:</strong> Switch to the "Live Dashboard" tab to generate an AI-powered trading signal, view market news, and see community sentiment.</li>
+              <li><strong>Audit with AI:</strong> In the "AI Audit & Backtest" tab, use the AI Strategy Auditor to get expert suggestions on your configuration from different AI personas.</li>
+              <li><strong>Generate Code:</strong> Use the floating code button in the bottom-right corner. You can copy the code, download the .mq5 file, or view it in a full-screen modal. The button will be disabled if your configuration has errors.</li>
               <li><strong>Deploy in MetaTrader 5:</strong>
                 <ul className="list-disc list-inside ml-4 mt-1">
                     <li>Click "Copy" or "Download" to get the generated code.</li>
@@ -69,17 +85,14 @@ const ManualModal: React.FC<ManualModalProps> = ({ onClose }) => {
           </section>
 
           <section>
-            <h3 className="text-xl font-semibold text-brand-accent mb-2">3. Parameter Explanations</h3>
+            <h3 className="text-xl font-semibold text-brand-accent mb-2">4. Parameter Explanations</h3>
             
             <h4 className="text-lg font-semibold text-brand-text mt-4 mb-2">Grid Strategy Parameters</h4>
             <ul className="space-y-3">
               <li><strong>Initial Risk (%):</strong> Dynamically calculates the first trade's lot size based on account equity, ensuring consistent risk exposure.</li>
               <li><strong>Grid Distance (Points):</strong> The minimum price distance between subsequent trades in the grid.</li>
-              <li><strong>Grid Distance Multiplier:</strong> Dynamically increases grid spacing as more trades open.</li>
-              <li><strong>Grid Lot Multiplier:</strong> Each new trade in the grid will have its lot size multiplied by this value.</li>
-              <li><strong>Max Grid Trades:</strong> The maximum number of trades that can be open at once in a single grid.</li>
+              <li><strong>Grid Lot Multiplier:</strong> Each new trade in the grid will have its lot size multiplied by this value (Martingale style).</li>
               <li><strong>Take Profit (USD):</strong> The total profit in your account currency at which the entire grid of trades will be closed.</li>
-              <li><strong>Stop Loss (% of Equity):</strong> The total loss as a percentage of your account equity at which the entire grid will be closed.</li>
             </ul>
 
             <h4 className="text-lg font-semibold text-brand-text mt-6 mb-2">Signal Strategy Parameters</h4>
@@ -92,7 +105,7 @@ const ManualModal: React.FC<ManualModalProps> = ({ onClose }) => {
           </section>
           
           <section>
-            <h3 className="text-xl font-semibold text-brand-accent mb-2">4. Important Disclaimer</h3>
+            <h3 className="text-xl font-semibold text-brand-accent mb-2">5. Important Disclaimer</h3>
             <p>This tool is for educational purposes. Financial trading involves substantial risk. The AI analysis is generated by a large language model and should not be considered financial advice. Past performance is not indicative of future results. Always conduct thorough backtesting on a demo account before risking real capital. The creators of this application are not liable for any financial losses incurred.</p>
           </section>
         </main>
@@ -100,6 +113,60 @@ const ManualModal: React.FC<ManualModalProps> = ({ onClose }) => {
     </div>
   );
 };
+
+const AboutModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
+  return (
+    <div 
+      className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4"
+      onClick={onClose}
+      aria-modal="true"
+      role="dialog"
+    >
+      <div 
+        className="bg-brand-secondary border border-brand-border rounded-lg max-w-2xl w-full flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <header className="flex justify-between items-center p-4 border-b border-brand-border">
+          <h2 className="text-2xl font-bold text-brand-text flex items-center gap-3">
+            <QuantumIcon className="w-6 h-6 text-brand-accent" />
+            About MQL5 Quantum
+          </h2>
+          <button onClick={onClose} className="p-2 rounded-full hover:bg-brand-border transition-colors" aria-label="Close">
+            <XIcon className="w-6 h-6 text-brand-muted" />
+          </button>
+        </header>
+        <main className="p-6 text-brand-muted space-y-6 overflow-y-auto">
+          <section>
+            <h3 className="text-xl font-semibold text-brand-accent mb-2">Application Purpose</h3>
+            <p>This application is designed to help traders and developers generate MQL5 Expert Advisor (EA) code for two popular trading strategies tailored for BTC/USD on the H1 timeframe. Configure your parameters, analyze the potential outcomes, and get ready-to-use code for MetaTrader 5.</p>
+          </section>
+          <section>
+            <h3 className="text-xl font-semibold text-brand-accent mb-2">Core Strategies</h3>
+            <div className="space-y-3">
+              <div>
+                <h4 className="font-semibold text-brand-text">Grid Strategy</h4>
+                <p className="text-sm">A trend-following system that opens an initial trade based on a Moving Average. If the market moves against the trade, it opens additional trades at set distances with a potentially larger lot size (Martingale style), aiming to close the entire grid in profit.</p>
+              </div>
+              <div>
+                <h4 className="font-semibold text-brand-text">Signal Strategy</h4>
+                <p className="text-sm">A classic technical strategy that uses a Moving Average to determine the trend. It waits for a pullback (indicated by the RSI) within that trend to trigger an entry. Stop Loss and Take Profit levels are dynamically calculated based on market volatility using the ATR indicator.</p>
+              </div>
+            </div>
+          </section>
+          <section>
+            <h3 className="text-xl font-semibold text-brand-accent mb-2">Open Source</h3>
+            <p className="mb-3">This project is open-source and available on GitHub. Contributions, feedback, and bug reports are welcome!</p>
+            <a href="https://github.com/gemini-prototyping/mql5-ea-generator" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-brand-primary border border-brand-border text-brand-text hover:bg-brand-border transition-colors font-semibold">
+              <GitHubIcon className="w-5 h-5" />
+              <span>View on GitHub</span>
+            </a>
+          </section>
+        </main>
+      </div>
+    </div>
+  );
+};
+
 
 const validateConfig = (config: EAConfig): Partial<Record<keyof EAConfig | 'general', string>> => {
     const newErrors: Partial<Record<keyof EAConfig | 'general', string>> = {};
@@ -128,8 +195,12 @@ const validateConfig = (config: EAConfig): Partial<Record<keyof EAConfig | 'gene
     if (isNaN(end.getTime())) newErrors.endDate = 'Invalid end date format.';
 
     if (!newErrors.startDate && !newErrors.endDate) {
-        if (start >= end) newErrors.startDate = 'Start date must be before end date.';
-        if (end > today) newErrors.endDate = 'End date cannot be in the future.';
+        if (start >= end) {
+            newErrors.startDate = 'Start date must be before end date.';
+            newErrors.endDate = 'End date must be after start date.';
+        } else if (end > today) { // Only check for future date if the range is valid
+            newErrors.endDate = 'End date cannot be in the future.';
+        }
     }
     
     let generalWarnings = '';
@@ -150,16 +221,18 @@ const validateConfig = (config: EAConfig): Partial<Record<keyof EAConfig | 'gene
 
 const calculateSimulatedResults = (config: EAConfig): SimulatedResults => {
     if (config.strategyType === 'signal') {
-        const signal_atrMultiplierSL = config.signal_atrMultiplierSL ?? 2;
-        const signal_atrMultiplierTP = config.signal_atrMultiplierTP ?? 3;
-        const signal_maPeriod = config.signal_maPeriod ?? 50;
-        const signal_rsiPeriod = config.signal_rsiPeriod ?? 14;
+        const sl = config.signal_atrMultiplierSL ?? 2;
+        const tp = config.signal_atrMultiplierTP ?? 3;
+        const ma = config.signal_maPeriod ?? 50;
+        const rsi = config.signal_rsiPeriod ?? 14;
 
-        const riskRewardRatio = signal_atrMultiplierSL > 0 ? signal_atrMultiplierTP / signal_atrMultiplierSL : 3;
-        const profitFactor = Math.max(1.2, Math.min(3.0, riskRewardRatio * 1.1));
-        const drawdown = Math.max(8, Math.min(30, (signal_atrMultiplierSL / 1.5) * 10));
-        const winRate = Math.max(35, Math.min(70, 65 - signal_maPeriod / 10 - signal_rsiPeriod / 5));
-        const sharpeRatio = Math.max(0.6, Math.min(2.5, profitFactor * (winRate / 100) * 1.2));
+        const riskRewardRatio = sl > 0 ? tp / sl : 3;
+        const drawdown = Math.min(95, 8 + (sl / riskRewardRatio) * 15 + (ma / 50));
+        const optimalRsi = 14;
+        const winRate = Math.max(30, Math.min(75, 60 - Math.abs(ma - 70) / 5 - Math.abs(rsi - optimalRsi) / 2 + riskRewardRatio * 2));
+        const profitFactor = Math.max(0.7, Math.min(4.0, 1.0 + (riskRewardRatio * (winRate / 100)) - ((1 - winRate / 100) * 0.9)));
+        const sharpeRatio = drawdown > 0 ? (profitFactor * winRate / 500) / (drawdown / 100) : 3.0;
+        
         return {
             profitFactor: profitFactor.toFixed(2),
             drawdown: `${drawdown.toFixed(2)}%`,
@@ -178,10 +251,11 @@ const calculateSimulatedResults = (config: EAConfig): SimulatedResults => {
 
     const stopLossUSD = (stopLoss / 100) * initialDeposit;
     const riskRewardRatio = stopLossUSD > 0 ? takeProfit / stopLossUSD : 5;
-    const profitFactor = Math.max(1.1, Math.min(3.5, 1.0 + riskRewardRatio + (gridMultiplier - 1.2) * 2 + initialRiskPercent * 0.1));
-    const drawdown = Math.max(5, Math.min(50, (maxGridTrades / 10) * (gridMultiplier / 1.5) * 20 + stopLoss + initialRiskPercent * 2));
-    const winRate = Math.max(30, Math.min(85, 80 - maPeriod / 5 - (maxGridTrades - 3) * 2));
-    const sharpeRatio = Math.max(0.5, Math.min(3.0, profitFactor * (winRate / 100) * 1.5));
+    const drawdown = Math.min(95, 5 + Math.pow(gridMultiplier, Math.max(1, maxGridTrades - 2)) + stopLoss + initialRiskPercent * 2);
+    const optimalMa = 60;
+    const winRate = Math.max(30, Math.min(85, 80 - Math.abs(maPeriod - optimalMa) / 3 - (maxGridTrades - 3) * 2));
+    const profitFactor = Math.max(0.5, 1.0 + (riskRewardRatio / 5) + (Math.pow(gridMultiplier, 1.5) - 1.5) - (drawdown / 50));
+    const sharpeRatio = drawdown > 0 ? (profitFactor * winRate / 100 * 50) / drawdown : 3.0;
 
     return {
         profitFactor: profitFactor.toFixed(2),
@@ -200,6 +274,8 @@ const initialConfig: EAConfig = {
     startDate: '2023-01-01',
     endDate: endDate,
     initialDeposit: 10000,
+    commission: 5.0,
+    slippage: 10,
     strategyType: 'grid',
     initialRiskPercent: 1.0,
     gridDistance: 2000,
@@ -229,12 +305,77 @@ const initialConfig: EAConfig = {
 };
 
 const defaultPresets: Presets = {
-  "Balanced Trend Rider (Grid)": { ...initialConfig, strategyType: 'grid', magicNumber: 20202, initialRiskPercent: 0.5, gridDistance: 2500, gridDistanceMultiplier: 1.2, gridMultiplier: 1.5, maxGridTrades: 3, maType: 'SMA', maPeriod: 50, takeProfit: 250, stopLoss: 2.5, useTrailingStop: true, trailingStopStart: 1000, trailingStopDistance: 800 },
-  "MA/RSI Pullback (Signal)": { ...initialConfig, strategyType: 'signal', magicNumber: 60606, signal_lotSize: 0.02, signal_maType: 'EMA', signal_maPeriod: 50, signal_atrPeriod: 14, signal_atrMultiplierSL: 1.5, signal_atrMultiplierTP: 2.5, signal_rsiPeriod: 14, signal_rsiOversold: 35, signal_rsiOverbought: 65 },
-  "Scalper's Delight (Grid)": { ...initialConfig, strategyType: 'grid', magicNumber: 10101, initialRiskPercent: 1.5, gridDistance: 1000, gridDistanceMultiplier: 1.0, gridMultiplier: 1.8, maxGridTrades: 5, maType: 'EMA', maPeriod: 20, takeProfit: 100, stopLoss: 3.0, useTrailingStop: true, trailingStopStart: 400, trailingStopDistance: 300 },
-  "Low & Slow Accumulator (Grid)": { ...initialConfig, strategyType: 'grid', magicNumber: 40404, initialRiskPercent: 0.25, gridDistance: 4000, gridDistanceMultiplier: 1.1, gridMultiplier: 1.2, maxGridTrades: 8, maType: 'SMA', maPeriod: 100, takeProfit: 500, stopLoss: 5.0, useTrailingStop: false },
-  "RSI Divergence Hunter (Signal)": { ...initialConfig, strategyType: 'signal', magicNumber: 70707, signal_lotSize: 0.01, signal_maType: 'SMA', signal_maPeriod: 100, signal_atrPeriod: 14, signal_atrMultiplierSL: 2.0, signal_atrMultiplierTP: 4.0, signal_rsiPeriod: 14, signal_rsiOversold: 25, signal_rsiOverbought: 75 },
-  "High R:R Breakout (Signal)": { ...initialConfig, strategyType: 'signal', magicNumber: 90909, signal_lotSize: 0.02, signal_maType: 'EMA', signal_maPeriod: 50, signal_atrPeriod: 20, signal_atrMultiplierSL: 2.5, signal_atrMultiplierTP: 5.0, signal_rsiPeriod: 14, signal_rsiOversold: 40, signal_rsiOverbought: 60 },
+  "Safe Harbor Grid (BTC)": {
+    ...initialConfig,
+    strategyType: 'grid',
+    magicNumber: 11111,
+    initialRiskPercent: 0.25,
+    gridDistance: 4000,
+    gridDistanceMultiplier: 1.1,
+    gridMultiplier: 1.2,
+    maxGridTrades: 8,
+    maType: 'SMA',
+    maPeriod: 100,
+    takeProfit: 500,
+    stopLoss: 5.0,
+    useTrailingStop: false,
+    commission: 3.0,
+    slippage: 10
+  },
+  "Momentum Scalper Grid (BTC)": {
+    ...initialConfig,
+    strategyType: 'grid',
+    magicNumber: 22222,
+    initialRiskPercent: 1.2,
+    gridDistance: 1500,
+    gridDistanceMultiplier: 1.0,
+    gridMultiplier: 1.6,
+    maxGridTrades: 4,
+    maType: 'EMA',
+    maPeriod: 21,
+    takeProfit: 150,
+    stopLoss: 3.0,
+    useTrailingStop: true,
+    trailingStopStart: 400,
+    trailingStopDistance: 300,
+    commission: 7.0,
+    slippage: 20
+  },
+  "Classic Trend Pullback (BTC)": {
+    ...initialConfig,
+    strategyType: 'signal',
+    magicNumber: 33333,
+    signal_lotSize: 0.02,
+    signal_maType: 'EMA',
+    signal_maPeriod: 50,
+    signal_atrPeriod: 14,
+    signal_atrMultiplierSL: 2.0,
+    signal_atrMultiplierTP: 3.5,
+    signal_rsiPeriod: 14,
+    signal_rsiOversold: 35,
+    signal_rsiOverbought: 65,
+    commission: 5.0,
+    slippage: 10
+  },
+  "Deep Value Hunter (Signal - BTC)": {
+    ...initialConfig,
+    strategyType: 'signal',
+    magicNumber: 44444,
+    signal_lotSize: 0.01,
+    signal_maType: 'SMA',
+    signal_maPeriod: 100,
+    signal_atrPeriod: 14,
+    signal_atrMultiplierSL: 2.5,
+    signal_atrMultiplierTP: 5.0,
+    signal_rsiPeriod: 14,
+    signal_rsiOversold: 25,
+    signal_rsiOverbought: 75,
+    signal_useTrailingStop: true,
+    signal_trailingStopStart: 2000,
+    signal_trailingStopDistance: 1500,
+    commission: 5.0,
+    slippage: 10
+  },
 };
 
 const App: React.FC = () => {
@@ -243,9 +384,18 @@ const App: React.FC = () => {
   const [errors, setErrors] = useState<Partial<Record<keyof EAConfig | 'general', string>>>(() => validateConfig(initialConfig));
   const [generatedCode, setGeneratedCode] = useState<string>('');
   const [isManualOpen, setIsManualOpen] = useState<boolean>(false);
+  const [isAboutModalOpen, setIsAboutModalOpen] = useState<boolean>(false);
+  const [isChangelogOpen, setIsChangelogOpen] = useState<boolean>(false);
   const [optimizationState, setOptimizationState] = useState<{ isOpen: boolean; parameter: keyof EAConfig | null; title: string; }>({ isOpen: false, parameter: null, title: '' });
   const [optimizationResults, setOptimizationResults] = useState<OptimizationResult[]>([]);
   const [isOptimizing, setIsOptimizing] = useState(false);
+  const [isCodeModalOpen, setIsCodeModalOpen] = useState(false);
+  const [isInitialSetup, setIsInitialSetup] = useState(true);
+  const [activeTab, setActiveTab] = useState<ActiveTab>('chart');
+  
+  const { user, signIn, signOut, isGapiLoaded, gapiError } = useGoogleAuth();
+  const [syncStatus, setSyncStatus] = useState('');
+  const didAutoLoad = useRef(false);
 
   const hasHardErrors = useMemo(() => Object.values(errors).some(e => {
     if (typeof e === 'string') {
@@ -274,20 +424,67 @@ const App: React.FC = () => {
     setConfig(newConfig);
     presetManager.setSelectedPreset('');
   };
+  
+  const handleStartConfiguration = (deposit: number, strategy: StrategyType) => {
+    const newConfig = { ...initialConfig, initialDeposit: deposit, strategyType: strategy };
+    handleConfigChange(newConfig);
+    setIsInitialSetup(false);
+  };
+  
+  const handleSaveToDrive = useCallback(async () => {
+    setSyncStatus('Saving...');
+    try {
+      const dataToSave: DriveData = {
+        config: config,
+        presets: presetManager.presets,
+      };
+      await saveDataToDrive(dataToSave);
+      setSyncStatus('Saved successfully!');
+    } catch (error) {
+      console.error(error);
+      setSyncStatus(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+    setTimeout(() => setSyncStatus(''), 3000);
+  }, [config, presetManager.presets]);
+
+  const handleLoadFromDrive = useCallback(async () => {
+    setSyncStatus('Loading...');
+    try {
+      const loadedData = await loadDataFromDrive();
+      if (loadedData) {
+        handleConfigChange(loadedData.config || initialConfig);
+        presetManager.setPresets(loadedData.presets || defaultPresets);
+        setSyncStatus('Loaded successfully!');
+      } else {
+        setSyncStatus('No data found in Drive.');
+      }
+    } catch (error) {
+      console.error(error);
+      setSyncStatus(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+    setTimeout(() => setSyncStatus(''), 3000);
+  }, [presetManager]);
+
+  // Effect for auto-loading data once after user signs in
+  useEffect(() => {
+    if (user && !didAutoLoad.current) {
+        didAutoLoad.current = true;
+        handleLoadFromDrive();
+    }
+  }, [user, handleLoadFromDrive]);
+
 
   const handleSavePreset = () => presetManager.savePreset(presetManager.newPresetName, config);
 
   const handleLoadPreset = (presetName: string) => {
     const loadedConfig = presetManager.loadPreset(presetName);
     if (loadedConfig) {
-      // Clean the loaded preset to remove any null/undefined values before merging.
-      // This prevents old presets with missing keys from overwriting defaults with null.
       const cleanedConfig: Partial<EAConfig> = {};
       for (const key in loadedConfig) {
         if (Object.prototype.hasOwnProperty.call(loadedConfig, key)) {
           const value = loadedConfig[key as keyof EAConfig];
           if (value !== null && value !== undefined) {
-            // @ts-ignore - We are dynamically building the object, this is safe.
+            // @ts-ignore
             cleanedConfig[key as keyof EAConfig] = value;
           }
         }
@@ -336,6 +533,39 @@ const App: React.FC = () => {
     handleConfigChange(newConfig);
     handleCloseOptimizer();
   };
+  
+  useEffect(() => {
+    const lastVersion = localStorage.getItem('appVersion');
+    if (lastVersion !== APP_VERSION) {
+      setIsChangelogOpen(true);
+      localStorage.setItem('appVersion', APP_VERSION);
+    }
+  }, []);
+
+  if (isInitialSetup) {
+      return (
+        <div className="min-h-screen bg-brand-primary flex flex-col items-center justify-center p-4">
+            <WelcomeScreen onStart={handleStartConfiguration} />
+        </div>
+      )
+  }
+  
+  const TabButton: React.FC<{tabName: ActiveTab; label: string; Icon: React.FC<{className?: string}>}> = ({ tabName, label, Icon }) => {
+    const isActive = activeTab === tabName;
+    return (
+        <button
+            onClick={() => setActiveTab(tabName)}
+            className={`flex items-center gap-2 whitespace-nowrap py-3 px-2 border-b-2 font-semibold text-sm transition-colors ${
+                isActive 
+                ? 'border-brand-accent text-brand-accent' 
+                : 'border-transparent text-brand-muted hover:text-brand-text hover:border-gray-500'
+            }`}
+        >
+            <Icon className="w-5 h-5" />
+            {label}
+        </button>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-brand-primary flex flex-col items-center p-2 sm:p-4">
@@ -347,17 +577,44 @@ const App: React.FC = () => {
                     <h1 className="text-lg font-bold text-brand-text leading-tight">MQL5 Quantum</h1>
                     <p className="text-xs text-brand-muted leading-tight">Bitcoin EA Generator</p>
                 </div>
+                 <button onClick={() => setIsChangelogOpen(true)} className="ml-2 px-2 py-1 bg-brand-accent/20 text-brand-accent text-xs font-bold rounded-md hover:bg-brand-accent/40 transition-colors">
+                    v{APP_VERSION}
+                </button>
             </div>
             <div className="flex items-center gap-2">
-                <button onClick={() => setIsManualOpen(true)} className="hidden sm:flex items-center gap-2 text-brand-muted hover:text-brand-text transition-colors text-sm font-medium">
-                    <BookOpenIcon className="w-4 h-4" />
-                    <span>Manual</span>
-                </button>
-                <a href="https://github.com/gemini-prototyping/mql5-ea-generator" target="_blank" rel="noopener noreferrer" className="p-2 rounded-md bg-brand-secondary border border-brand-border text-brand-muted hover:text-brand-text transition-colors" aria-label="View on GitHub">
-                    <GitHubIcon className="w-5 h-5" />
-                </a>
+                {isGapiLoaded && !gapiError && (
+                    user ? (
+                        <div className="flex items-center gap-2">
+                            <img src={user.getBasicProfile().getImageUrl()} alt="User" className="w-7 h-7 rounded-full" />
+                            <span className="hidden sm:inline text-sm text-brand-muted">
+                                Welcome, <span className="font-semibold text-brand-text">{user.getBasicProfile().getGivenName()}</span>
+                            </span>
+                            <button onClick={signOut} className="text-xs font-semibold text-brand-muted hover:text-brand-text">(Sign Out)</button>
+                        </div>
+                    ) : (
+                        <button onClick={signIn} className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-brand-secondary border border-brand-border text-brand-text hover:bg-brand-border transition-colors text-sm font-semibold">
+                            <GoogleIcon className="w-4 h-4" />
+                            Sign in with Google
+                        </button>
+                    )
+                )}
+                {gapiError && <span className="text-xs text-red-400">{gapiError}</span>}
+
+                <div className="hidden sm:flex items-center gap-2 border-l border-brand-border ml-2 pl-4">
+                  <button onClick={() => setIsAboutModalOpen(true)} className="flex items-center gap-2 text-brand-muted hover:text-brand-text transition-colors text-sm font-medium">
+                      <InfoIcon className="w-4 h-4" />
+                      <span>About</span>
+                  </button>
+                  <button onClick={() => setIsManualOpen(true)} className="flex items-center gap-2 text-brand-muted hover:text-brand-text transition-colors text-sm font-medium">
+                      <BookOpenIcon className="w-4 h-4" />
+                      <span>Manual</span>
+                  </button>
+                </div>
                 <ThemeToggle theme={theme} onToggle={toggleTheme} />
                  <div className="sm:hidden">
+                    <button onClick={() => setIsAboutModalOpen(true)} className="p-2 rounded-md bg-brand-secondary border border-brand-border text-brand-muted hover:text-brand-text transition-colors" aria-label="Open about modal">
+                      <InfoIcon className="w-5 h-5" />
+                    </button>
                     <button onClick={() => setIsManualOpen(true)} className="p-2 rounded-md bg-brand-secondary border border-brand-border text-brand-muted hover:text-brand-text transition-colors" aria-label="Open application manual">
                       <BookOpenIcon className="w-5 h-5" />
                     </button>
@@ -365,43 +622,76 @@ const App: React.FC = () => {
             </div>
         </header>
 
-        <main className="grid grid-cols-1 xl:grid-cols-2 gap-4 mt-2">
-          <div className="flex flex-col gap-4">
-             <ErrorBoundary componentName="Market Watch"><PriceTicker /></ErrorBoundary>
-            <ErrorBoundary componentName="Configuration Panel">
-              <ConfigPanel
-                config={config}
-                onConfigChange={handleConfigChange}
-                errors={errors}
-                presets={presetManager.presets}
-                selectedPreset={presetManager.selectedPreset}
-                newPresetName={presetManager.newPresetName}
-                onNewPresetNameChange={presetManager.setNewPresetName}
-                onSavePreset={handleSavePreset}
-                onLoadPreset={handleLoadPreset}
-                onDeletePreset={handleDeletePreset}
-                onOpenOptimizer={handleOpenOptimizer}
-              />
-            </ErrorBoundary>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="md:col-span-1"><ErrorBoundary componentName="Backtest Results"><BacktestResults results={simulatedResults} /></ErrorBoundary></div>
-              <div className="md:col-span-2"><ErrorBoundary componentName="AI Analysis"><AIAnalysis config={config} results={simulatedResults} /></ErrorBoundary></div>
+        <main className="grid grid-cols-1 lg:grid-cols-5 gap-4 mt-2">
+            {/* --- Left Column (Config) --- */}
+            <div className="lg:col-span-2 flex flex-col">
+                <ErrorBoundary componentName="Configuration Panel">
+                    <ConfigPanel
+                        config={config}
+                        onConfigChange={handleConfigChange}
+                        errors={errors}
+                        presets={presetManager.presets}
+                        selectedPreset={presetManager.selectedPreset}
+                        newPresetName={presetManager.newPresetName}
+                        onNewPresetNameChange={presetManager.setNewPresetName}
+                        onSavePreset={handleSavePreset}
+                        onLoadPreset={handleLoadPreset}
+                        onDeletePreset={handleDeletePreset}
+                        onOpenOptimizer={handleOpenOptimizer}
+                        isDriveAuthenticated={!!user}
+                        onSaveToDrive={handleSaveToDrive}
+                        onLoadFromDrive={handleLoadFromDrive}
+                        syncStatus={syncStatus}
+                    />
+                </ErrorBoundary>
             </div>
-             {config.strategyType === 'grid' && (<ErrorBoundary componentName="Manual Grid Planner"><ManualGridPlanner config={config} /></ErrorBoundary>)}
-          </div>
-          <div className="flex flex-col gap-4">
-             <ErrorBoundary 
-                componentName="Interactive Chart"
-                fallbackMessage={
-                    <p className="text-brand-muted mt-2">
-                        The chart failed to load. Please try refreshing the page.
-                    </p>
-                }
-             >
-                <InteractiveChart config={config} />
-             </ErrorBoundary>
-            <ErrorBoundary componentName="Code Display"><CodeDisplay code={generatedCode} isEnabled={!hasHardErrors} isModal={false} /></ErrorBoundary>
-          </div>
+
+            {/* --- Right Column (Tabs) --- */}
+            <div className="lg:col-span-3 flex flex-col">
+                {/* Tab Navigation */}
+                <div className="border-b border-brand-border">
+                    <nav className="-mb-px flex space-x-4 sm:space-x-6" aria-label="Tabs">
+                       <TabButton tabName="chart" label="Chart & Planner" Icon={TrendingUpIcon} />
+                       <TabButton tabName="dashboard" label="Live Dashboard" Icon={LayoutDashboardIcon} />
+                       <TabButton tabName="analysis" label="AI Audit & Backtest" Icon={SparklesIcon} />
+                    </nav>
+                </div>
+
+                {/* Tab Content */}
+                <div className="flex-grow mt-4">
+                    {activeTab === 'chart' && (
+                        <div className="flex flex-col gap-4">
+                            <ErrorBoundary componentName="Price Ticker"><PriceTicker /></ErrorBoundary>
+                            <ErrorBoundary 
+                                componentName="Live Chart"
+                                fallbackMessage={
+                                    <p className="text-brand-muted mt-2">
+                                        The live chart failed to load. This can happen due to network issues or a temporary problem with the charting service. Please try refreshing the page.
+                                    </p>
+                                }
+                            >
+                                <TradingViewChartWidget theme={theme} />
+                            </ErrorBoundary>
+                            {config.strategyType === 'grid' && (<ErrorBoundary componentName="Manual Grid Planner"><ManualGridPlanner config={config} /></ErrorBoundary>)}
+                        </div>
+                    )}
+
+                    {activeTab === 'dashboard' && (
+                        <div className="flex flex-col gap-4">
+                             <ErrorBoundary componentName="Live Trading Signal"><LiveTradingSignal /></ErrorBoundary>
+                             <ErrorBoundary componentName="Market News"><MarketNewsFeed /></ErrorBoundary>
+                             <ErrorBoundary componentName="Community Sentiment"><MyfxbookWidget theme={theme} /></ErrorBoundary>
+                        </div>
+                    )}
+
+                    {activeTab === 'analysis' && (
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                             <div className="lg:col-span-1"><ErrorBoundary componentName="Backtest Results"><BacktestResults results={simulatedResults} /></ErrorBoundary></div>
+                             <div className="lg:col-span-2"><ErrorBoundary componentName="AI Analysis"><AIAnalysis config={config} results={simulatedResults} /></ErrorBoundary></div>
+                        </div>
+                    )}
+                </div>
+            </div>
         </main>
 
         <footer className="mt-8 text-center text-brand-muted text-xs">
@@ -411,7 +701,24 @@ const App: React.FC = () => {
           </div>
         </footer>
       </div>
+      
+      <FloatingCodeButton 
+        code={generatedCode}
+        isEnabled={!hasHardErrors}
+        onViewCode={() => setIsCodeModalOpen(true)}
+      />
+
+      {/* --- Modals --- */}
       {isManualOpen && <ManualModal onClose={() => setIsManualOpen(false)} />}
+      {isAboutModalOpen && <AboutModal onClose={() => setIsAboutModalOpen(false)} />}
+      {isChangelogOpen && <ChangelogModal onClose={() => setIsChangelogOpen(false)} currentVersion={APP_VERSION} />}
+      {isCodeModalOpen && (
+        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
+            <div className="w-full h-full">
+                 <CodeDisplay code={generatedCode} isEnabled={!hasHardErrors} onClose={() => setIsCodeModalOpen(false)} />
+            </div>
+        </div>
+      )}
       {optimizationState.isOpen && optimizationState.parameter &&
         <OptimizationModal
           isOpen={optimizationState.isOpen}
@@ -423,6 +730,8 @@ const App: React.FC = () => {
           onApply={handleApplyOptimization}
           results={optimizationResults}
           isLoading={isOptimizing}
+          config={config}
+          calculateSimulatedResults={calculateSimulatedResults}
         />
       }
     </div>

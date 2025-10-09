@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import type { EAConfig, Presets, SimulatedResults, OptimizationResult } from '../types.ts';
 import { generateMql5Code } from '../services/mql5Generator.ts';
@@ -128,8 +129,12 @@ const validateConfig = (config: EAConfig): Partial<Record<keyof EAConfig | 'gene
     if (isNaN(end.getTime())) newErrors.endDate = 'Invalid end date format.';
 
     if (!newErrors.startDate && !newErrors.endDate) {
-        if (start >= end) newErrors.startDate = 'Start date must be before end date.';
-        if (end > today) newErrors.endDate = 'End date cannot be in the future.';
+        if (start >= end) {
+            newErrors.startDate = 'Start date must be before end date.';
+            newErrors.endDate = 'End date must be after start date.';
+        } else if (end > today) {
+            newErrors.endDate = 'End date cannot be in the future.';
+        }
     }
     
     let generalWarnings = '';
@@ -200,6 +205,8 @@ const initialConfig: EAConfig = {
     startDate: '2023-01-01',
     endDate: endDate,
     initialDeposit: 10000,
+    commission: 5.0,
+    slippage: 10,
     strategyType: 'grid',
     initialRiskPercent: 1.0,
     gridDistance: 2000,
@@ -374,7 +381,7 @@ const App: React.FC = () => {
             {config.strategyType === 'grid' && (<ErrorBoundary componentName="Manual Grid Planner"><ManualGridPlanner config={config} /></ErrorBoundary>)}
             <ErrorBoundary componentName="Interactive Chart"><InteractiveChart config={config} /></ErrorBoundary>
           </div>
-          <ErrorBoundary componentName="Code Display"><CodeDisplay code={generatedCode} isEnabled={!hasHardErrors} isModal={false} /></ErrorBoundary>
+          <ErrorBoundary componentName="Code Display"><CodeDisplay code={generatedCode} isEnabled={!hasHardErrors} /></ErrorBoundary>
         </main>
 
         <footer className="mt-12 text-center text-brand-muted text-sm">

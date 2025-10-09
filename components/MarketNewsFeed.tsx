@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect } from 'react';
 import type { FundamentalData } from '../types.ts';
 import { fetchMarketNews } from '../services/fundamentalDataService.ts';

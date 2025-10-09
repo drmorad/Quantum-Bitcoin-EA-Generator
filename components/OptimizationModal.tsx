@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import type { EAConfig, OptimizationResult } from '../types.ts';
+import type { EAConfig, OptimizationResult, SimulatedResults } from '../types.ts';
 import { XIcon, TuneIcon, SparklesIcon } from './icons.tsx';
+import { generateOptimizationSuggestion } from '../services/aiService.ts';
 
 interface OptimizationModalProps {
   isOpen: boolean;
@@ -12,6 +13,8 @@ interface OptimizationModalProps {
   onApply: (parameter: keyof EAConfig, value: number) => void;
   results: OptimizationResult[];
   isLoading: boolean;
+  config: EAConfig;
+  calculateSimulatedResults: (config: EAConfig) => SimulatedResults;
 }
 
 const NumberInput: React.FC<React.InputHTMLAttributes<HTMLInputElement> & { label: string, error?: string }> = ({ label, id, error, ...props }) => (
@@ -21,33 +24,27 @@ const NumberInput: React.FC<React.InputHTMLAttributes<HTMLInputElement> & { labe
             id={id}
             type="number"
             {...props}
-            className={`w-full bg-brand-primary border rounded-md px-3 py-2 text-white focus:ring-2 focus:border-brand-accent disabled:opacity-70 ${error ? 'border-red-500/50 focus:ring-red-500' : 'border-brand-border focus:ring-brand-accent'}`}
+            className={`w-full bg-brand-primary border rounded-md px-3 py-2 text-brand-text focus:ring-2 focus:border-brand-accent disabled:opacity-70 ${error ? 'border-red-500/50 focus:ring-red-500' : 'border-brand-border focus:ring-brand-accent'}`}
         />
         {error && <p className="text-red-400 text-xs mt-1">{error}</p>}
     </div>
 );
 
 
-const OptimizationModal: React.FC<OptimizationModalProps> = ({ isOpen, onClose, parameterKey, parameterTitle, currentValue, onRun, onApply, results, isLoading }) => {
-  const val = currentValue ?? 0;
-  const isInt = Number.isInteger(val) || parameterKey.toLowerCase().includes('period') || parameterKey.toLowerCase().includes('trades') || parameterKey.toLowerCase().includes('distance') || parameterKey.toLowerCase().includes('start');
-  
-  const [form, setForm] = useState(() => {
-    const defaultStep = isInt ? 1 : 0.1;
-    const defaultRange = isInt ? 10 * defaultStep : 1;
-    return {
-      start: (val - defaultRange / 2).toFixed(isInt ? 0 : 2),
-      end: (val + defaultRange / 2).toFixed(isInt ? 0 : 2),
-      step: defaultStep.toString(),
-    };
-  });
+const OptimizationModal: React.FC<OptimizationModalProps> = ({ isOpen, onClose, parameterKey, parameterTitle, currentValue, onRun, onApply, results, isLoading, config }) => {
+  const [form, setForm] = useState({ start: '', end: '', step: '' });
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isAiLoading, setIsAiLoading] = useState(false);
+
+  const isInt = useMemo(() => {
+    const val = currentValue ?? 0;
+    return Number.isInteger(val) || parameterKey.toLowerCase().includes('period') || parameterKey.toLowerCase().includes('trades') || parameterKey.toLowerCase().includes('distance') || parameterKey.toLowerCase().includes('start');
+  }, [currentValue, parameterKey]);
 
   useEffect(() => {
     const val = currentValue ?? 0;
-    const isInt = Number.isInteger(val) || parameterKey.toLowerCase().includes('period') || parameterKey.toLowerCase().includes('trades') || parameterKey.toLowerCase().includes('distance') || parameterKey.toLowerCase().includes('start');
     const defaultStep = isInt ? 1 : 0.1;
-    const defaultRange = isInt ? 10 * defaultStep : 1.0;
+    const defaultRange = isInt ? 10 * defaultStep : 1;
     
     setForm({
         start: (val - defaultRange / 2).toFixed(isInt ? 0 : 2),
@@ -55,7 +52,7 @@ const OptimizationModal: React.FC<OptimizationModalProps> = ({ isOpen, onClose, 
         step: defaultStep.toString(),
     });
     setErrors({});
-  }, [parameterKey, currentValue]);
+  }, [parameterKey, currentValue, isInt]);
 
   const handleRun = () => {
     const startNum = parseFloat(form.start);
@@ -84,6 +81,24 @@ const OptimizationModal: React.FC<OptimizationModalProps> = ({ isOpen, onClose, 
     }
   };
 
+  const handleAiSuggest = async () => {
+    setIsAiLoading(true);
+    setErrors({});
+    try {
+        const suggestion = await generateOptimizationSuggestion(parameterTitle, config);
+        setForm({
+            start: suggestion.start.toFixed(isInt ? 0 : 2),
+            end: suggestion.end.toFixed(isInt ? 0 : 2),
+            step: suggestion.step.toString(),
+        });
+    } catch (e) {
+        console.error("AI Suggestion failed:", e);
+        setErrors({ ...errors, start: "AI suggestion failed. Please set manually." });
+    } finally {
+        setIsAiLoading(false);
+    }
+  };
+
   const bestResult = useMemo(() => {
     if (results.length === 0) return null;
     return results.reduce((best, current) => parseFloat(current.results.sharpeRatio) > parseFloat(best.results.sharpeRatio) ? current : best);
@@ -95,7 +110,7 @@ const OptimizationModal: React.FC<OptimizationModalProps> = ({ isOpen, onClose, 
     <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={onClose} role="dialog" aria-modal="true">
       <div className="bg-brand-secondary border border-brand-border rounded-lg max-w-4xl w-full max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
         <header className="flex justify-between items-center p-4 border-b border-brand-border flex-shrink-0">
-          <h2 className="text-2xl font-bold text-white flex items-center gap-3">
+          <h2 className="text-2xl font-bold text-brand-text flex items-center gap-3">
             <TuneIcon className="w-6 h-6 text-brand-accent"/>
             Optimize: <span className="text-brand-accent">{parameterTitle}</span>
           </h2>
@@ -106,14 +121,28 @@ const OptimizationModal: React.FC<OptimizationModalProps> = ({ isOpen, onClose, 
         
         <main className="flex flex-col md:flex-row flex-grow min-h-0">
           <aside className="w-full md:w-1/3 p-6 border-b md:border-b-0 md:border-r border-brand-border space-y-4 flex flex-col">
-            <h3 className="text-lg font-semibold">Test Range</h3>
-            <fieldset disabled={isLoading} className="space-y-4">
+            <div className="flex justify-between items-center">
+                <h3 className="text-lg font-semibold">Test Range</h3>
+                <button 
+                  onClick={handleAiSuggest} 
+                  disabled={isAiLoading || isLoading}
+                  className="flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-md bg-brand-primary border border-brand-border text-brand-accent hover:bg-brand-accent/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isAiLoading ? (
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-brand-accent"></div>
+                  ) : (
+                    <SparklesIcon className="w-4 h-4" />
+                  )}
+                  Suggest with AI
+                </button>
+            </div>
+            <fieldset disabled={isLoading || isAiLoading} className="space-y-4">
                 <NumberInput label="Start Value" id="start" value={form.start} onChange={e => setForm({...form, start: e.target.value})} error={errors.start} />
                 <NumberInput label="End Value" id="end" value={form.end} onChange={e => setForm({...form, end: e.target.value})} error={errors.end} />
                 <NumberInput label="Step" id="step" value={form.step} onChange={e => setForm({...form, step: e.target.value})} error={errors.step} />
             </fieldset>
             <div className="mt-auto pt-4">
-                <button onClick={handleRun} disabled={isLoading || Object.keys(errors).length > 0} className="w-full px-4 py-2.5 bg-brand-accent text-white font-semibold rounded-md hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+                <button onClick={handleRun} disabled={isLoading || isAiLoading || Object.keys(errors).length > 0} className="w-full px-4 py-2.5 bg-brand-accent text-white font-semibold rounded-md hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
                     {isLoading ? 'Optimizing...' : 'Run Optimization'}
                 </button>
             </div>
@@ -156,13 +185,13 @@ const OptimizationModal: React.FC<OptimizationModalProps> = ({ isOpen, onClose, 
                                     const isBest = res.value === bestResult?.value;
                                     return (
                                         <tr key={res.value} className={`border-b border-brand-border/50 last:border-b-0 ${isBest ? 'bg-brand-gold/10' : ''}`}>
-                                            <td className={`p-2 font-mono font-semibold ${isBest ? 'text-brand-gold' : ''}`}>{res.value.toFixed(isInt ? 0 : 2)}</td>
+                                            <td className={`p-2 font-mono font-semibold ${isBest ? 'text-brand-gold' : 'text-brand-text'}`}>{res.value.toFixed(isInt ? 0 : 2)}</td>
                                             <td className="p-2 text-right font-mono text-brand-buy">{res.results.profitFactor}</td>
                                             <td className="p-2 text-right font-mono text-brand-sell">{res.results.drawdown}</td>
                                             <td className="p-2 text-right font-mono text-brand-accent">{res.results.winRate}</td>
-                                            <td className={`p-2 text-right font-mono font-bold ${isBest ? 'text-brand-gold' : 'text-white'}`}>{res.results.sharpeRatio}</td>
+                                            <td className={`p-2 text-right font-mono font-bold ${isBest ? 'text-brand-gold' : 'text-brand-text'}`}>{res.results.sharpeRatio}</td>
                                             <td className="p-2 text-center">
-                                                <button onClick={() => onApply(parameterKey, res.value)} className="px-3 py-1 bg-brand-primary hover:bg-brand-border text-brand-muted hover:text-white text-xs font-semibold rounded-md transition-colors">Apply</button>
+                                                <button onClick={() => onApply(parameterKey, res.value)} className="px-3 py-1 bg-brand-primary hover:bg-brand-border text-brand-muted hover:text-brand-text text-xs font-semibold rounded-md transition-colors">Apply</button>
                                             </td>
                                         </tr>
                                     );

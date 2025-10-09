@@ -14,8 +14,8 @@ const generateHeader = (strategyName: string, description: string): string => `
 //|               Strategy: ${strategyName} - See Notice Below                 |
 //+------------------------------------------------------------------+
 #property copyright "Generated Code"
-#property link      "https://github.com/your-repo"
-#property version   "1.00"
+#property link      "https://github.com/gemini-prototyping/mql5-ea-generator"
+#property version   "1.20"
 #property description "${description}"
 /*
 //+------------------------------------------------------------------+
@@ -65,6 +65,8 @@ const generateGridInputs = (config: EAConfig): string => {
     formatInput('ulong', 'InpMagicNumber', config.magicNumber ?? 13579, 'Unique EA identifier to distinguish its trades from others.'),
     formatInput('double', 'InpInitialRiskPercent', (config.initialRiskPercent ?? 1.0).toFixed(2), 'Percentage of equity used to calculate the initial lot size.'),
     formatInput('int', 'InpMaxSpread', config.maxSpread ?? 50, 'Max allowed spread in points; trading is paused if exceeded.'),
+    formatInput('int', 'InpSlippage', config.slippage ?? 10, 'Allowed slippage in points for trade execution.'),
+    formatInput('double', 'InpCommissionPerLot', (config.commission ?? 5.0).toFixed(2), 'Commission per lot in account currency (for backtest).'),
     formatInput('int', 'InpGridDistance', config.gridDistance ?? 2000, 'Initial distance in points between grid trades.'),
     formatInput('double', 'InpGridDistanceMultiplier', (config.gridDistanceMultiplier ?? 1.0).toFixed(2), 'Multiplier to increase distance for subsequent trades (1.0 = fixed).'),
     formatInput('double', 'InpGridMultiplier', (config.gridMultiplier ?? 1.5).toFixed(2), 'Lot size multiplier for each new grid trade (e.g., Martingale).'),
@@ -93,6 +95,8 @@ const generateSignalInputs = (config: EAConfig): string => {
     const eaInputs = [
         formatInput('ulong', 'InpMagicNumber', config.magicNumber ?? 13579, 'Unique EA identifier to distinguish its trades from others.'),
         formatInput('int', 'InpMaxSpread', (config.maxSpread ?? 50).toFixed(0), 'Max allowed spread in points; trading is paused if exceeded.'),
+        formatInput('int', 'InpSlippage', config.slippage ?? 10, 'Allowed slippage in points for trade execution.'),
+        formatInput('double', 'InpCommissionPerLot', (config.commission ?? 5.0).toFixed(2), 'Commission per lot in account currency (for backtest).'),
     ];
     const riskInputs = [
         formatInput('double', 'InpLotSize', (config.signal_lotSize ?? 0.01).toFixed(2), 'Fixed lot size for every trade.'),
@@ -135,7 +139,7 @@ int OnInit()
   {
    //--- Initialize trading object
    trade.SetExpertMagicNumber(InpMagicNumber);
-   trade.SetDeviationInPoints(100); // Allow some slippage
+   trade.SetDeviationInPoints(InpSlippage);
    trade.SetTypeFillingBySymbol(_Symbol);
 
    //--- Create indicator handle
@@ -509,7 +513,7 @@ int OnInit()
   {
    //--- Initialize trading object
    trade.SetExpertMagicNumber(InpMagicNumber);
-   trade.SetDeviationInPoints(100); // Allow some slippage
+   trade.SetDeviationInPoints(InpSlippage);
    trade.SetTypeFillingBySymbol(_Symbol);
 
    //--- Create indicator handles

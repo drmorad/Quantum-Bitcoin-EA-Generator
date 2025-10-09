@@ -13,8 +13,8 @@ const generateHeader = (strategyName: string, description: string): string => `
 //|               Strategy: ${strategyName} - See Notice Below                 |
 //+------------------------------------------------------------------+
 #property copyright "Generated Code"
-#property link      "https://github.com/your-repo"
-#property version   "1.00"
+#property link      "https://github.com/gemini-prototyping/mql5-ea-generator"
+#property version   "1.20"
 #property description "${description}"
 /*
 //+------------------------------------------------------------------+
@@ -58,23 +58,26 @@ const formatInput = (type: string, name: string, value: any, comment: string): s
  * @returns A formatted string of MQL5 input parameters.
  */
 const generateGridInputs = (config: EAConfig): string => {
-  const maMethod = config.maType === 'SMA' ? 'MODE_SMA' : 'MODE_EMA';
+  const maMethod = (config.maType ?? 'SMA') === 'SMA' ? 'MODE_SMA' : 'MODE_EMA';
+  // Use nullish coalescing operator (??) to provide default values, preventing crashes if config properties are null/undefined.
   const inputs = [
-    formatInput('ulong', 'InpMagicNumber', config.magicNumber, 'Unique EA identifier to distinguish its trades from others.'),
-    formatInput('double', 'InpInitialRiskPercent', config.initialRiskPercent.toFixed(2), 'Percentage of equity used to calculate the initial lot size.'),
-    formatInput('int', 'InpMaxSpread', config.maxSpread, 'Max allowed spread in points; trading is paused if exceeded.'),
-    formatInput('int', 'InpGridDistance', config.gridDistance, 'Initial distance in points between grid trades.'),
-    formatInput('double', 'InpGridDistanceMultiplier', config.gridDistanceMultiplier.toFixed(2), 'Multiplier to increase distance for subsequent trades (1.0 = fixed).'),
-    formatInput('double', 'InpGridMultiplier', config.gridMultiplier.toFixed(2), 'Lot size multiplier for each new grid trade (e.g., Martingale).'),
-    formatInput('int', 'InpMaxGridTrades', config.maxGridTrades, 'Maximum number of trades allowed in a single grid series.'),
+    formatInput('ulong', 'InpMagicNumber', config.magicNumber ?? 13579, 'Unique EA identifier to distinguish its trades from others.'),
+    formatInput('double', 'InpInitialRiskPercent', (config.initialRiskPercent ?? 1.0).toFixed(2), 'Percentage of equity used to calculate the initial lot size.'),
+    formatInput('int', 'InpMaxSpread', config.maxSpread ?? 50, 'Max allowed spread in points; trading is paused if exceeded.'),
+    formatInput('int', 'InpSlippage', config.slippage ?? 10, 'Allowed slippage in points for trade execution.'),
+    formatInput('double', 'InpCommissionPerLot', (config.commission ?? 5.0).toFixed(2), 'Commission per lot in account currency (for backtest).'),
+    formatInput('int', 'InpGridDistance', config.gridDistance ?? 2000, 'Initial distance in points between grid trades.'),
+    formatInput('double', 'InpGridDistanceMultiplier', (config.gridDistanceMultiplier ?? 1.0).toFixed(2), 'Multiplier to increase distance for subsequent trades (1.0 = fixed).'),
+    formatInput('double', 'InpGridMultiplier', (config.gridMultiplier ?? 1.5).toFixed(2), 'Lot size multiplier for each new grid trade (e.g., Martingale).'),
+    formatInput('int', 'InpMaxGridTrades', config.maxGridTrades ?? 3, 'Maximum number of trades allowed in a single grid series.'),
     formatInput('ENUM_MA_METHOD', 'InpMAMethod', maMethod, 'Method for the trend-filtering Moving Average (SMA/EMA).'),
-    formatInput('int', 'InpMAPeriod', config.maPeriod, 'Period for the trend-filtering Moving Average.'),
-    formatInput('double', 'InpTakeProfit', config.takeProfit.toFixed(2), 'Aggregate profit in account currency to close the entire grid.'),
-    formatInput('double', 'InpTakeProfitMultiplier', config.takeProfitMultiplier.toFixed(2), 'Multiplies TP target as more trades open (1.0 = fixed).'),
-    formatInput('double', 'InpStopLoss', config.stopLoss.toFixed(2), 'Aggregate loss as a % of account equity to close the entire grid.'),
-    formatInput('bool', 'InpUseTrailingStop', config.useTrailingStop ? 'true' : 'false', 'If true, enables the dynamic trailing stop loss.'),
-    formatInput('int', 'InpTrailingStopStart', config.trailingStopStart, 'Profit in points to activate the trailing stop.'),
-    formatInput('int', 'InpTrailingStopDistance', config.trailingStopDistance, 'Distance in points the SL will trail behind price.'),
+    formatInput('int', 'InpMAPeriod', config.maPeriod ?? 50, 'Period for the trend-filtering Moving Average.'),
+    formatInput('double', 'InpTakeProfit', (config.takeProfit ?? 200).toFixed(2), 'Aggregate profit in account currency to close the entire grid.'),
+    formatInput('double', 'InpTakeProfitMultiplier', (config.takeProfitMultiplier ?? 1.0).toFixed(2), 'Multiplies TP target as more trades open (1.0 = fixed).'),
+    formatInput('double', 'InpStopLoss', (config.stopLoss ?? 2.0).toFixed(2), 'Aggregate loss as a % of account equity to close the entire grid.'),
+    formatInput('bool', 'InpUseTrailingStop', (config.useTrailingStop ?? false) ? 'true' : 'false', 'If true, enables the dynamic trailing stop loss.'),
+    formatInput('int', 'InpTrailingStopStart', config.trailingStopStart ?? 500, 'Profit in points to activate the trailing stop.'),
+    formatInput('int', 'InpTrailingStopDistance', config.trailingStopDistance ?? 500, 'Distance in points the SL will trail behind price.'),
   ];
   return `//--- EA Input Parameters\n${inputs.join('\n')}`;
 };
@@ -85,26 +88,30 @@ const generateGridInputs = (config: EAConfig): string => {
  * @returns A formatted string of MQL5 input parameters.
  */
 const generateSignalInputs = (config: EAConfig): string => {
-    const maMethod = config.signal_maType === 'SMA' ? 'MODE_SMA' : 'MODE_EMA';
+    const maMethod = (config.signal_maType ?? 'EMA') === 'SMA' ? 'MODE_SMA' : 'MODE_EMA';
+    // Use nullish coalescing operator (??) to provide default values and .toFixed() to safely format all numbers,
+    // making the function extremely resilient to null/undefined values from old presets.
     const eaInputs = [
-        formatInput('ulong', 'InpMagicNumber', config.magicNumber, 'Unique EA identifier to distinguish its trades from others.'),
-        formatInput('int', 'InpMaxSpread', config.maxSpread, 'Max allowed spread in points; trading is paused if exceeded.'),
+        formatInput('ulong', 'InpMagicNumber', config.magicNumber ?? 13579, 'Unique EA identifier to distinguish its trades from others.'),
+        formatInput('int', 'InpMaxSpread', (config.maxSpread ?? 50).toFixed(0), 'Max allowed spread in points; trading is paused if exceeded.'),
+        formatInput('int', 'InpSlippage', config.slippage ?? 10, 'Allowed slippage in points for trade execution.'),
+        formatInput('double', 'InpCommissionPerLot', (config.commission ?? 5.0).toFixed(2), 'Commission per lot in account currency (for backtest).'),
     ];
     const riskInputs = [
-        formatInput('double', 'InpLotSize', config.signal_lotSize.toFixed(2), 'Fixed lot size for every trade.'),
-        formatInput('bool', 'InpUseTrailingStop', config.signal_useTrailingStop ? 'true' : 'false', 'If true, enables the dynamic trailing stop loss.'),
-        formatInput('int', 'InpTrailingStopStart', config.signal_trailingStopStart, 'Profit in points to activate the trailing stop.'),
-        formatInput('int', 'InpTrailingStopDistance', config.signal_trailingStopDistance, 'Distance in points the SL will trail behind price.'),
+        formatInput('double', 'InpLotSize', (config.signal_lotSize ?? 0.01).toFixed(2), 'Fixed lot size for every trade.'),
+        formatInput('bool', 'InpUseTrailingStop', (config.signal_useTrailingStop ?? false) ? 'true' : 'false', 'If true, enables the dynamic trailing stop loss.'),
+        formatInput('int', 'InpTrailingStopStart', (config.signal_trailingStopStart ?? 500).toFixed(0), 'Profit in points to activate the trailing stop.'),
+        formatInput('int', 'InpTrailingStopDistance', (config.signal_trailingStopDistance ?? 500).toFixed(0), 'Distance in points the SL will trail behind price.'),
     ];
     const entryInputs = [
         formatInput('ENUM_MA_METHOD', 'InpMAMethod', maMethod, 'Method for the trend-filtering Moving Average (SMA/EMA).'),
-        formatInput('int', 'InpMAPeriod', config.signal_maPeriod, 'Period for the trend-filtering Moving Average.'),
-        formatInput('int', 'InpATRPeriod', config.signal_atrPeriod, 'Period for the ATR indicator (used for SL/TP).'),
-        formatInput('double', 'InpATRMultiplierSL', config.signal_atrMultiplierSL.toFixed(2), 'Multiplier of ATR value to set the Stop Loss distance.'),
-        formatInput('double', 'InpATRMultiplierTP', config.signal_atrMultiplierTP.toFixed(2), 'Multiplier of ATR value to set the Take Profit distance.'),
-        formatInput('int', 'InpRSIPeriod', config.signal_rsiPeriod, 'Period for the RSI indicator (used for entry signals).'),
-        formatInput('double', 'InpRSIOversold', config.signal_rsiOversold, 'RSI level below which buy signals are considered.'),
-        formatInput('double', 'InpRSIOverbought', config.signal_rsiOverbought, 'RSI level above which sell signals are considered.'),
+        formatInput('int', 'InpMAPeriod', (config.signal_maPeriod ?? 50).toFixed(0), 'Period for the trend-filtering Moving Average.'),
+        formatInput('int', 'InpATRPeriod', (config.signal_atrPeriod ?? 14).toFixed(0), 'Period for the ATR indicator (used for SL/TP).'),
+        formatInput('double', 'InpATRMultiplierSL', (config.signal_atrMultiplierSL ?? 2.0).toFixed(2), 'Multiplier of ATR value to set the Stop Loss distance.'),
+        formatInput('double', 'InpATRMultiplierTP', (config.signal_atrMultiplierTP ?? 3.0).toFixed(2), 'Multiplier of ATR value to set the Take Profit distance.'),
+        formatInput('int', 'InpRSIPeriod', (config.signal_rsiPeriod ?? 14).toFixed(0), 'Period for the RSI indicator (used for entry signals).'),
+        formatInput('double', 'InpRSIOversold', (config.signal_rsiOversold ?? 30).toFixed(1), 'RSI level below which buy signals are considered.'),
+        formatInput('double', 'InpRSIOverbought', (config.signal_rsiOverbought ?? 70).toFixed(1), 'RSI level above which sell signals are considered.'),
     ];
 
     return `//--- EA Inputs\n${eaInputs.join('\n')}\n\n//--- Risk Management\n${riskInputs.join('\n')}\n\n//--- Entry Signal\n${entryInputs.join('\n')}`;
@@ -131,7 +138,7 @@ int OnInit()
   {
    //--- Initialize trading object
    trade.SetExpertMagicNumber(InpMagicNumber);
-   trade.SetDeviationInPoints(100); // Allow some slippage
+   trade.SetDeviationInPoints(InpSlippage);
    trade.SetTypeFillingBySymbol(_Symbol);
 
    //--- Create indicator handle
@@ -505,7 +512,7 @@ int OnInit()
   {
    //--- Initialize trading object
    trade.SetExpertMagicNumber(InpMagicNumber);
-   trade.SetDeviationInPoints(100); // Allow some slippage
+   trade.SetDeviationInPoints(InpSlippage);
    trade.SetTypeFillingBySymbol(_Symbol);
 
    //--- Create indicator handles

@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { AlertTriangleIcon } from './icons.tsx';
 
@@ -11,7 +10,8 @@ interface State {
 }
 
 class ErrorBoundary extends React.Component<Props, State> {
-  state: State = { hasError: false };
+  // FIX: Replaced constructor with a class property to initialize state. This is modern syntax and resolves issues with 'this.state' not being recognized.
+  public state: State = { hasError: false };
 
   static getDerivedStateFromError(_: Error): State {
     return { hasError: true };

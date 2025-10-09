@@ -22,6 +22,8 @@ const PARAM_RANGES: Omit<Record<keyof EAConfig, { min: number; max: number }>, '
     initialRiskPercent: { min: 0.1, max: 5.0 },
     maxSpread: { min: 1, max: 5000 },
     initialDeposit: { min: 100, max: 1000000 },
+    commission: { min: 0, max: 50 },
+    slippage: { min: 0, max: 100 },
     gridDistance: { min: 100, max: 5000 },
     gridDistanceMultiplier: { min: 1.0, max: 2.5 },
     gridMultiplier: { min: 1.1, max: 2.5 },
@@ -156,15 +158,19 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
                 <div className="md:col-span-2">
                     <InputSlider label="Initial Deposit (USD)" value={config.initialDeposit} onChange={(v) => handleChange('initialDeposit', v)} min={PARAM_RANGES.initialDeposit.min} max={PARAM_RANGES.initialDeposit.max} step={100} tooltip="The starting balance for the backtest simulation." error={errors.initialDeposit} />
                 </div>
+                <InputSlider label="Commission ($ per Lot)" value={config.commission} onChange={(v) => handleChange('commission', v)} min={PARAM_RANGES.commission.min} max={PARAM_RANGES.commission.max} step={0.5} tooltip="Commission cost per full lot round turn (e.g., for backtest simulation)." error={errors.commission} />
+                <InputSlider label="Slippage (Points)" value={config.slippage} onChange={(v) => handleChange('slippage', v)} min={PARAM_RANGES.slippage.min} max={PARAM_RANGES.slippage.max} step={1} tooltip="Maximum allowed slippage for trade execution in points." error={errors.slippage} />
             </div>
         </div>
 
         <div className="pt-2">
-            <h3 className="text-lg font-semibold text-brand-accent border-b border-brand-border pb-2">Strategy Type</h3>
-            <div className="grid grid-cols-2 gap-2 p-1 bg-brand-primary rounded-lg border border-brand-border mt-4">
-                <button onClick={() => handleChange('strategyType', 'grid')} className={`flex items-center justify-center gap-2 px-4 py-2 rounded-md text-sm font-semibold transition-colors ${config.strategyType === 'grid' ? 'bg-brand-accent text-white' : 'text-brand-muted hover:bg-brand-secondary'}`}><GridIcon className="w-5 h-5"/> Grid Strategy</button>
-                <button onClick={() => handleChange('strategyType', 'signal')} className={`flex items-center justify-center gap-2 px-4 py-2 rounded-md text-sm font-semibold transition-colors ${config.strategyType === 'signal' ? 'bg-brand-accent text-white' : 'text-brand-muted hover:bg-brand-secondary'}`}><SignalIcon className="w-5 h-5"/> Signal Strategy</button>
-            </div>
+          <h3 className="text-lg font-semibold text-brand-accent border-b border-brand-border pb-2">Active Strategy</h3>
+          <div className="mt-4 flex items-center gap-3 bg-brand-primary border border-brand-border rounded-lg px-4 py-3">
+            {config.strategyType === 'grid' ? <GridIcon className="w-6 h-6 text-brand-accent" /> : <SignalIcon className="w-6 h-6 text-brand-accent" />}
+            <span className="text-lg font-semibold text-brand-text">
+              {config.strategyType === 'grid' ? 'Grid Strategy' : 'Signal Strategy'}
+            </span>
+          </div>
         </div>
 
         {config.strategyType === 'grid' && (
@@ -230,7 +236,7 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
                 <h3 className="text-lg font-semibold text-brand-accent border-b border-brand-border pb-2 flex items-center gap-2"><ShieldCheckIcon className="w-5 h-5" /> Risk & Position Sizing</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <InputSlider label="Lot Size" value={config.signal_lotSize} onChange={(v) => handleChange('signal_lotSize', v)} min={PARAM_RANGES.signal_lotSize.min} max={PARAM_RANGES.signal_lotSize.max} step={0.01} tooltip="The fixed lot size for each trade." error={errors.signal_lotSize} />
-                    <InputSlider label="ATR Period" value={config.signal_atrPeriod} onChange={(v) => handleChange('signal_atrPeriod', v)} min={PARAM_RANGES.signal_atrPeriod.min} max={PARAM_RANGES.signal_atrPeriod.max} step={1} tooltip="The period for the ATR indicator, used for SL/TP placement." error={errors.signal_atrPeriod} />
+                    <InputSlider label="ATR Period" value={config.signal_atrPeriod} onChange={(v) => handleChange('signal_atrPeriod', v)} min={PARAM_RANGES.signal_atrPeriod.min} max={PARAM_RANGES.signal_atrPeriod.max} step={1} tooltip="The period for the ATR indicator, used for SL/TP placement." error={errors.signal_atrPeriod} isOptimizable={true} onOptimize={() => onOpenOptimizer('signal_atrPeriod', 'ATR Period')} />
                     <InputSlider label="ATR Multiplier for SL" value={config.signal_atrMultiplierSL} onChange={(v) => handleChange('signal_atrMultiplierSL', v)} min={PARAM_RANGES.signal_atrMultiplierSL.min} max={PARAM_RANGES.signal_atrMultiplierSL.max} step={0.1} tooltip="Stop Loss distance in multiples of the ATR value." error={errors.signal_atrMultiplierSL} isOptimizable={true} onOptimize={() => onOpenOptimizer('signal_atrMultiplierSL', 'ATR Multiplier for SL')} />
                     <InputSlider label="ATR Multiplier for TP" value={config.signal_atrMultiplierTP} onChange={(v) => handleChange('signal_atrMultiplierTP', v)} min={PARAM_RANGES.signal_atrMultiplierTP.min} max={PARAM_RANGES.signal_atrMultiplierTP.max} step={0.1} tooltip="Take Profit distance in multiples of the ATR value." error={errors.signal_atrMultiplierTP} isOptimizable={true} onOptimize={() => onOpenOptimizer('signal_atrMultiplierTP', 'ATR Multiplier for TP')} />
                 </div>

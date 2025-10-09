@@ -22,6 +22,9 @@ const PARAM_RANGES: Omit<Record<keyof EAConfig, { min: number; max: number }>, '
     initialRiskPercent: { min: 0.1, max: 5.0 },
     maxSpread: { min: 1, max: 5000 },
     initialDeposit: { min: 100, max: 1000000 },
+    // FIX: Add missing commission and slippage properties to satisfy the type.
+    commission: { min: 0, max: 50 },
+    slippage: { min: 0, max: 100 },
     gridDistance: { min: 100, max: 5000 },
     gridDistanceMultiplier: { min: 1.0, max: 2.5 },
     gridMultiplier: { min: 1.1, max: 2.5 },
@@ -156,6 +159,9 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
                 <div className="md:col-span-2">
                     <InputSlider label="Initial Deposit (USD)" value={config.initialDeposit} onChange={(v) => handleChange('initialDeposit', v)} min={PARAM_RANGES.initialDeposit.min} max={PARAM_RANGES.initialDeposit.max} step={100} tooltip="The starting balance for the backtest simulation." error={errors.initialDeposit} />
                 </div>
+                {/* FIX: Add InputSlider components for commission and slippage. */}
+                <InputSlider label="Commission ($ per Lot)" value={config.commission} onChange={(v) => handleChange('commission', v)} min={PARAM_RANGES.commission.min} max={PARAM_RANGES.commission.max} step={0.5} tooltip="Commission cost per full lot round turn (e.g., for backtest simulation)." error={errors.commission} />
+                <InputSlider label="Slippage (Points)" value={config.slippage} onChange={(v) => handleChange('slippage', v)} min={PARAM_RANGES.slippage.min} max={PARAM_RANGES.slippage.max} step={1} tooltip="Maximum allowed slippage for trade execution in points." error={errors.slippage} />
             </div>
         </div>
 

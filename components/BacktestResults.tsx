@@ -1,13 +1,13 @@
 
-
 import React from 'react';
-// FIX: Use explicit file extension for imports
 import type { SimulatedResults } from '../types.ts';
-import { CalculatorIcon, TrendingUpIcon, TrendingDownIcon, PercentIcon, TargetIcon } from './icons.tsx';
+import { CalculatorIcon, TrendingUpIcon, TrendingDownIcon, PercentIcon, TargetIcon, ArrowUpIcon, ArrowDownIcon, MinusIcon } from './icons.tsx';
 
 interface BacktestResultsProps {
   results: SimulatedResults;
 }
+
+type Rating = 'good' | 'neutral' | 'bad';
 
 interface MetricCardProps {
     Icon: React.FC<{className?: string}>;
@@ -15,19 +15,60 @@ interface MetricCardProps {
     value: string;
     iconBgClass: string;
     textColorClass: string;
+    rating: Rating;
 }
 
-const MetricCard: React.FC<MetricCardProps> = ({ Icon, label, value, iconBgClass, textColorClass }) => (
+const RatingIndicator: React.FC<{ rating: Rating }> = ({ rating }) => {
+    if (rating === 'good') {
+        return <ArrowUpIcon className="w-4 h-4 text-brand-buy" />;
+    }
+    if (rating === 'bad') {
+        return <ArrowDownIcon className="w-4 h-4 text-brand-sell" />;
+    }
+    return <MinusIcon className="w-4 h-4 text-brand-muted" />;
+};
+
+
+const MetricCard: React.FC<MetricCardProps> = ({ Icon, label, value, iconBgClass, textColorClass, rating }) => (
     <div className="bg-brand-primary/50 border border-brand-border rounded-lg p-3 flex items-center gap-3 h-full">
         <div className={`p-2 rounded-full ${iconBgClass}`}>
             <Icon className="w-5 h-5 text-white" />
         </div>
         <div>
             <p className="text-xs text-brand-muted">{label}</p>
-            <p className={`text-lg font-bold ${textColorClass}`}>{value}</p>
+            <div className="flex items-center gap-1.5" title={rating === 'good' ? 'Good' : rating === 'bad' ? 'Poor' : 'Average'}>
+              <p className={`text-lg font-bold ${textColorClass}`}>{value}</p>
+              <RatingIndicator rating={rating} />
+            </div>
         </div>
     </div>
 );
+
+const getMetricRating = (label: string, value: string): Rating => {
+    const numValue = parseFloat(value.replace('%', ''));
+    if (isNaN(numValue)) return 'neutral';
+
+    switch (label) {
+        case 'Profit Factor':
+            if (numValue > 1.5) return 'good';
+            if (numValue < 1.0) return 'bad';
+            return 'neutral';
+        case 'Max Drawdown': // Lower is better
+            if (numValue < 15) return 'good';
+            if (numValue > 30) return 'bad';
+            return 'neutral';
+        case 'Win Rate':
+            if (numValue > 55) return 'good';
+            if (numValue < 40) return 'bad';
+            return 'neutral';
+        case 'Sharpe Ratio':
+            if (numValue > 1.0) return 'good';
+            if (numValue < 0.5) return 'bad';
+            return 'neutral';
+        default:
+            return 'neutral';
+    }
+};
 
 
 const BacktestResults: React.FC<BacktestResultsProps> = ({ results }) => {
@@ -45,6 +86,7 @@ const BacktestResults: React.FC<BacktestResultsProps> = ({ results }) => {
             value={results.profitFactor}
             iconBgClass="bg-brand-buy/30"
             textColorClass="text-brand-buy"
+            rating={getMetricRating("Profit Factor", results.profitFactor)}
         />
         <MetricCard 
             Icon={TrendingDownIcon}
@@ -52,6 +94,7 @@ const BacktestResults: React.FC<BacktestResultsProps> = ({ results }) => {
             value={results.drawdown}
             iconBgClass="bg-brand-sell/30"
             textColorClass="text-brand-sell"
+            rating={getMetricRating("Max Drawdown", results.drawdown)}
         />
         <MetricCard 
             Icon={PercentIcon}
@@ -59,6 +102,7 @@ const BacktestResults: React.FC<BacktestResultsProps> = ({ results }) => {
             value={results.winRate}
             iconBgClass="bg-brand-accent/30"
             textColorClass="text-brand-accent"
+            rating={getMetricRating("Win Rate", results.winRate)}
         />
         <MetricCard 
             Icon={TargetIcon}
@@ -66,6 +110,7 @@ const BacktestResults: React.FC<BacktestResultsProps> = ({ results }) => {
             value={results.sharpeRatio}
             iconBgClass="bg-brand-gold/30"
             textColorClass="text-brand-gold"
+            rating={getMetricRating("Sharpe Ratio", results.sharpeRatio)}
         />
       </div>
       <p className="text-xs text-brand-muted text-center italic pt-3">

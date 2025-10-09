@@ -1,4 +1,3 @@
-
 import type { Time } from 'lightweight-charts';
 
 export type StrategyType = 'grid' | 'signal';
@@ -10,6 +9,8 @@ export interface EAConfig {
   startDate: string;
   endDate: string;
   initialDeposit: number;
+  commission: number;
+  slippage: number;
   strategyType: StrategyType;
   
   // Grid strategy specific
@@ -43,6 +44,11 @@ export interface EAConfig {
 }
 
 export type Presets = Record<string, Partial<EAConfig>>;
+
+export interface DriveData {
+  config: EAConfig;
+  presets: Presets;
+}
 
 export interface SimulatedResults {
   profitFactor: string;

@@ -2,8 +2,7 @@
 import React from 'react';
 import { AlertTriangleIcon } from './icons.tsx';
 
-// FIX: Use React.PropsWithChildren to correctly type props that include children.
-// This resolves TS errors about missing 'children' property when using the component.
+// Use React.PropsWithChildren to correctly type props that include children.
 type Props = React.PropsWithChildren<{
   componentName: string;
   fallbackMessage?: React.ReactNode;
@@ -14,9 +13,7 @@ interface State {
 }
 
 class ErrorBoundary extends React.Component<Props, State> {
-  // FIX: Use a class property for state initialization.
-  // This is a more modern syntax and can resolve some type inference issues with `this.state` in the constructor.
-  state: State = { hasError: false };
+  public state: State = { hasError: false };
 
   static getDerivedStateFromError(_: Error): State {
     return { hasError: true };

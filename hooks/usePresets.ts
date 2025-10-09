@@ -1,6 +1,4 @@
-
 import { useState, useEffect, useCallback, useRef } from 'react';
-// FIX: Use explicit file extension for imports
 import type { EAConfig, Presets } from '../types.ts';
 
 const PRESETS_STORAGE_KEY = 'mql5-ea-presets';
@@ -67,7 +65,6 @@ export const usePresets = (defaultPresets: Presets) => {
    * Loads a preset configuration by name.
    * @returns The loaded partial EAConfig or null if not found.
    */
-  // FIX: The return type is updated to Partial<EAConfig> to align with the Presets type, which stores partial configurations. This resolves the type mismatch error.
   const loadPreset = useCallback((name: string): Partial<EAConfig> | null => {
     setSelectedPreset(name);
     if (presets[name]) {
@@ -94,6 +91,7 @@ export const usePresets = (defaultPresets: Presets) => {
 
   return {
     presets,
+    setPresets,
     selectedPreset,
     newPresetName,
     setNewPresetName,

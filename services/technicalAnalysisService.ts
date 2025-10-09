@@ -1,4 +1,6 @@
 
+// services/technicalAnalysisService.ts
+
 import type { EAConfig, CandlestickData, LiveAnalysisData, MAType } from '../types.ts';
 import type { Time } from 'lightweight-charts';
 
@@ -91,6 +93,99 @@ export const calculateRSI = (closePrices: number[], period: number): (number | n
     }
 
     return results;
+};
+
+
+export interface IchimokuData {
+  tenkan: { time: Time; value: number }[];
+  kijun: { time: Time; value: number }[];
+  senkouA: { time: Time; value: number }[];
+  senkouB: { time: Time; value: number }[];
+  chikou: { time: Time; value: number }[];
+}
+
+/**
+ * Calculates all components of the Ichimoku Kinko Hyo indicator.
+ * @param data The input candlestick data.
+ * @returns An IchimokuData object containing arrays for each component.
+ */
+export const calculateIchimoku = (
+  data: CandlestickData[],
+  tenkanPeriod = 9,
+  kijunPeriod = 26,
+  senkouBPeriod = 52
+): IchimokuData => {
+  const displacement = kijunPeriod;
+  const tenkanValues: (number | null)[] = new Array(data.length).fill(null);
+  const kijunValues: (number | null)[] = new Array(data.length).fill(null);
+  // Allocate space for future-shifted values.
+  const senkouAValues: (number | null)[] = new Array(data.length + displacement).fill(null);
+  const senkouBValues: (number | null)[] = new Array(data.length + displacement).fill(null);
+  const chikouValues: (number | null)[] = new Array(data.length).fill(null);
+  
+  const lastTimestamp = data[data.length - 1]?.time as number;
+  const interval = 3600; // H1 chart interval is 3600 seconds
+  
+  // Create a complete timeline including future points for the Kumo.
+  const allTimestamps = [
+      ...data.map(d => d.time),
+      ...Array.from({ length: displacement }, (_, i) => (lastTimestamp + (i + 1) * interval) as Time)
+  ];
+
+  const getHighLow = (start: number, end: number) => {
+    let high = -Infinity;
+    let low = Infinity;
+    for (let i = start; i <= end; i++) {
+      if (data[i]) {
+        high = Math.max(high, data[i].high);
+        low = Math.min(low, data[i].low);
+      }
+    }
+    return { high, low };
+  };
+
+  for (let i = 0; i < data.length; i++) {
+    // Tenkan-sen (Conversion Line)
+    if (i >= tenkanPeriod - 1) {
+      const { high, low } = getHighLow(i - tenkanPeriod + 1, i);
+      tenkanValues[i] = (high + low) / 2;
+    }
+    
+    // Kijun-sen (Base Line)
+    if (i >= kijunPeriod - 1) {
+      const { high, low } = getHighLow(i - kijunPeriod + 1, i);
+      kijunValues[i] = (high + low) / 2;
+    }
+
+    // Senkou Span B (Leading Span B) - plotted `displacement` periods ahead.
+    if (i >= senkouBPeriod - 1) {
+      const { high, low } = getHighLow(i - senkouBPeriod + 1, i);
+      senkouBValues[i + displacement] = (high + low) / 2;
+    }
+
+    // Senkou Span A (Leading Span A) - plotted `displacement` periods ahead.
+    if (tenkanValues[i] !== null && kijunValues[i] !== null) {
+      senkouAValues[i + displacement] = (tenkanValues[i]! + kijunValues[i]!) / 2;
+    }
+
+    // Chikou Span (Lagging Span) - plotted `displacement` periods behind.
+    if (i >= displacement) {
+        chikouValues[i - displacement] = data[i].close;
+    }
+  }
+  
+  // Helper to map calculated values to their correct, possibly shifted, timestamps.
+  const mapToTimeValue = (values: (number|null)[]) => values
+      .map((v, i) => (v !== null && allTimestamps[i] ? { time: allTimestamps[i], value: v } : null))
+      .filter((v): v is { time: Time; value: number } => v !== null);
+
+  return {
+    tenkan: mapToTimeValue(tenkanValues),
+    kijun: mapToTimeValue(kijunValues),
+    senkouA: mapToTimeValue(senkouAValues),
+    senkouB: mapToTimeValue(senkouBValues),
+    chikou: mapToTimeValue(chikouValues),
+  };
 };
 
 

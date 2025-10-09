@@ -1,3 +1,4 @@
+
 import type { CandlestickData, TickerData } from '../types.ts';
 import { generateMockCandlestickData, generateMockTickerData } from './mockData.ts';
 

@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { XIcon, RocketIcon } from './icons.tsx';
 
@@ -37,20 +38,20 @@ const ChangelogModal: React.FC<ChangelogModalProps> = ({ onClose, currentVersion
             <h3 className="text-xl font-semibold text-brand-accent mb-3">Version 1.2.0 <span className="text-sm font-medium text-brand-muted">(Latest)</span></h3>
             <ul className="list-disc list-inside space-y-2">
               <li>
+                <strong className="text-brand-text">Live Trading Signal & Dashboard:</strong>
+                <p className="pl-6 text-sm">Introduced a new "Live Analysis Dashboard" featuring an AI-powered signal generator for real-time BUY/SELL/HOLD signals, a market news feed, and a community sentiment widget from Myfxbook.</p>
+              </li>
+               <li>
                 <strong className="text-brand-text">AI Auditor Upgrade - RSI Divergence Detection:</strong>
                 <p className="pl-6 text-sm">The AI Strategy Auditor now automatically detects bullish and bearish RSI divergence on the H1 chart. This powerful signal is incorporated into the audit, providing deeper insights into potential trend reversals or confirmations.</p>
               </li>
               <li>
-                <strong className="text-brand-text">Live Trading Signal Generator:</strong>
-                <p className="pl-6 text-sm">A new component that synthesizes real-time technical indicators (MA, RSI, MACD, Stochastic) and fundamental data to generate a concrete, actionable BUY, SELL, or HOLD signal with entry, take profit, and stop loss levels.</p>
-              </li>
-              <li>
                 <strong className="text-brand-text">Dynamic Lot Sizing for Grid Strategy:</strong>
-                <p className="pl-6 text-sm">The "Initial Lot" for the grid strategy has been replaced with "Initial Risk (%)". The EA now dynamically calculates the initial lot size based on account equity, providing more consistent risk management across different account sizes.</p>
+                <p className="pl-6 text-sm">The "Initial Lot" for the grid strategy has been replaced with "Initial Risk (%)". The EA now dynamically calculates the initial lot size based on account equity, providing more consistent risk management.</p>
               </li>
                <li>
-                <strong className="text-brand-text">Enhanced UI & UX:</strong>
-                <p className="pl-6 text-sm">Improved syntax highlighting for MQL5 code, more responsive layout adjustments, and general performance enhancements.</p>
+                <strong className="text-brand-text">Complete UI & Theme Overhaul:</strong>
+                <p className="pl-6 text-sm">Redesigned the entire application layout for a more modern and intuitive user experience. Added a persistent dark/light theme toggle and improved MQL5 syntax highlighting.</p>
               </li>
             </ul>
           </section>
